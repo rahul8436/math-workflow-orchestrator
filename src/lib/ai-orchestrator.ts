@@ -2,7 +2,7 @@ import Groq from 'groq-sdk';
 import { WorkflowTemplate } from '@/types/workflow';
 import { workflowMatcher } from './workflow-matcher';
 import { expressionParser } from './expression-parser';
-import { getModelForTask, getMaxTokensForModel } from './ai-models';
+import { getModelForTask, getMaxTokensForModel, getModelFallbackChain } from './ai-models';
 
 interface OrchestrationContext {
   userHistory: string[];
@@ -47,6 +47,9 @@ export class AIOrchestrator {
     this.context.availableWorkflows = availableWorkflows;
     this.context.userHistory.push(userMessage);
 
+    // Use LLM-based orchestration for all intent detection - no preprocessing
+    console.log('🎯 AI Orchestrator: Using pure LLM analysis for intent detection');
+
     // Step 1: Deep AI Analysis
     const deepAnalysis = await this.performDeepAnalysis(userMessage);
 
@@ -88,12 +91,16 @@ Provide detailed analysis in JSON format:
   "suggestedApproach": "how to best help the user"
 }`;
 
-    // Try multiple models with fallback
-    const models = [
-      { id: getModelForTask('analysis'), desc: 'primary analysis' },
-      { id: getModelForTask('simple'), desc: 'simple fallback' },
-      { id: getModelForTask('fallback'), desc: 'reliable fallback' }
-    ];
+    // Try multiple models with comprehensive fallback chain
+    const modelChain = getModelFallbackChain('analysis');
+    const models = modelChain.map((modelId, index) => ({
+      id: modelId,
+      desc: index === 0 ? 'primary analysis' : 
+           index === 1 ? 'secondary analysis' :
+           index === 2 ? 'medium analysis' :
+           index === 3 ? 'fast fallback' :
+           index === 4 ? 'reliable fallback' : 'emergency fallback'
+    }));
 
     for (const modelInfo of models) {
       try {
@@ -116,14 +123,14 @@ Provide detailed analysis in JSON format:
       } catch (error: any) {
         console.error(`Deep analysis failed with ${modelInfo.desc} model (${modelInfo.id}):`, error);
         
-        // For 500 errors on primary model, immediately try the next one
-        if (error.status === 500 && modelInfo.id === getModelForTask('analysis')) {
-          console.warn(`Primary model (${modelInfo.id}) returned 500 error, switching to fallback immediately`);
+        // For rate limit errors, show helpful message
+        if (error.status === 429) {
+          console.warn(`Rate limit hit on ${modelInfo.desc} model (${modelInfo.id}), trying next model...`);
         }
         
         if (modelInfo === models[models.length - 1]) {
-          // This was the last model
-          console.error('All models failed for deep analysis, using fallback analysis');
+          // This was the last model in the chain
+          console.error('All models in fallback chain failed for deep analysis, using manual fallback');
           return this.createFallbackAnalysis(message);
         }
         continue;
@@ -158,12 +165,16 @@ Respond with JSON:
   "relatedSuggestions": ["suggestion1", "suggestion2"]
 }`;
 
-    // Try multiple models with fallback
-    const models = [
-      { id: getModelForTask('orchestration'), desc: 'primary orchestration' },
-      { id: getModelForTask('analysis'), desc: 'analysis fallback' },
-      { id: getModelForTask('simple'), desc: 'simple fallback' }
-    ];
+    // Try multiple models with comprehensive fallback chain
+    const modelChain = getModelFallbackChain('orchestration');
+    const models = modelChain.map((modelId, index) => ({
+      id: modelId,
+      desc: index === 0 ? 'primary orchestration' : 
+           index === 1 ? 'secondary orchestration' :
+           index === 2 ? 'medium orchestration' :
+           index === 3 ? 'fast orchestration' :
+           index === 4 ? 'reliable orchestration' : 'emergency orchestration'
+    }));
 
     for (const modelInfo of models) {
       try {
@@ -193,7 +204,10 @@ Respond with JSON:
       } catch (error: any) {
         console.error(`Orchestration planning failed with ${modelInfo.desc} model (${modelInfo.id}):`, error);
         
-        // For 500 errors on primary model, immediately try the next one
+        // For rate limit errors, show helpful message
+        if (error.status === 429) {
+          console.warn(`Rate limit hit on ${modelInfo.desc} model (${modelInfo.id}), trying next model in chain...`);
+        }
         if (error.status === 500 && modelInfo.id === getModelForTask('orchestration')) {
           console.warn(`Primary orchestration model (${modelInfo.id}) returned 500 error, switching to fallback immediately`);
         }
@@ -346,60 +360,23 @@ Respond with JSON:
 
   // Get intelligent suggestions based on user's workflow history
   async getPersonalizedSuggestions(): Promise<string[]> {
-    const suggestionPrompt = `Based on user's workflow history: ${this.context.userHistory.join(', ')}
-
-Suggest 3-5 intelligent next steps that would help them grow their mathematical workflow skills:
-
-1. Natural progression from their current level
-2. Practical applications of what they've learned
-3. More complex versions of familiar concepts
-4. Related mathematical domains they haven't explored
-
-Return as a simple JSON array of strings (NOT objects): ["suggestion1", "suggestion2", "suggestion3"]
-
-Example format: ["Practice Order of Operations with complex expressions", "Explore algebraic expressions with variables", "Learn about exponential functions"]`;
-
-    // Try multiple models with fallback
-    const models = [
-      { id: getModelForTask('simple'), desc: 'simple suggestions' },
-      { id: getModelForTask('fallback'), desc: 'fallback suggestions' }
+    // Return demo-ready, clickable suggestions that work 100%
+    const demoReadySuggestions = [
+      "Create workflow for 10 + 15",
+      "Find workflow for 3 + 5", 
+      "Create workflow for (20 + 30) / 5",
+      "Find workflow for 6 × 4",
+      "Create workflow for 100 - 25",
+      "Find workflow for 30 ÷ 6",
+      "Create workflow for x + y - z",
+      "Calculate 45 + 55",
+      "Find workflow for 25 + 35",
+      "Create workflow for 12 × 5"
     ];
 
-    for (const modelInfo of models) {
-      try {
-        const maxTokens = getMaxTokensForModel(modelInfo.id);
-        
-        const response = await this.groq.chat.completions.create({
-          messages: [{ role: 'user', content: suggestionPrompt }],
-          model: modelInfo.id,
-          temperature: 0.4,
-          max_tokens: Math.min(maxTokens, 500)
-        });
-
-        const suggestionsText = response.choices[0]?.message?.content || '[]';
-        const jsonMatch = suggestionsText.match(/\[[\s\S]*\]/);
-        const suggestions = JSON.parse(jsonMatch ? jsonMatch[0] : '[]');
-        
-        // Ensure suggestions are strings, not objects
-        const cleanSuggestions = Array.isArray(suggestions) 
-          ? suggestions.map(s => typeof s === 'string' ? s : (s?.suggestion || s?.title || String(s)))
-          : [];
-        
-        console.log(`Personalized suggestions generated with ${modelInfo.desc} model (${modelInfo.id})`);
-        return cleanSuggestions;
-        
-      } catch (error: any) {
-        console.error(`Suggestion generation failed with ${modelInfo.desc} model (${modelInfo.id}):`, error);
-        continue;
-      }
-    }
-
-    // Fallback suggestions if all models fail
-    return [
-      'Try creating a more complex workflow',
-      'Explore different mathematical domains',
-      'Combine multiple operations in one workflow'
-    ];
+    // Randomize and return 3-4 suggestions for variety
+    const shuffled = demoReadySuggestions.sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, Math.floor(Math.random() * 2) + 3); // 3-4 suggestions
   }
 }
 

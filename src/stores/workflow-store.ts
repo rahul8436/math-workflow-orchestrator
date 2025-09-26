@@ -65,10 +65,15 @@ export const useWorkflowStore = create<WorkflowStore>()(
     currentExecution: null,
 
     // Template Actions
-    addTemplate: (template) =>
-      set((state) => ({
-        templates: [...state.templates, template]
-      })),
+    addTemplate: (template) => {
+      console.log('📦 Store: Adding template', template.name, 'with tags:', template.tags);
+      set((state) => {
+        const newTemplates = [...state.templates, template];
+        console.log('📦 Store: Total templates after add:', newTemplates.length);
+        console.log('📦 Store: User-created templates:', newTemplates.filter(t => t.tags.includes('user-created')).length);
+        return { templates: newTemplates };
+      });
+    },
 
     removeTemplate: (id) =>
       set((state) => ({

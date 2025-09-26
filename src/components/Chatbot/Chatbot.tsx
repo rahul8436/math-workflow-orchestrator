@@ -83,12 +83,26 @@ export function Chatbot() {
     }, 800); // Change step every 800ms
 
     try {
+      // Get fresh templates from store to avoid stale closure issues
+      const currentTemplates = useWorkflowStore.getState().templates;
+      
+      // Debug: Log current templates being sent to API
+      console.log('🔍 CHATBOT DEBUG: Templates being sent to API:', currentTemplates.length);
+      console.log('🔍 CHATBOT DEBUG: User-created workflows:', currentTemplates.filter(t => t.tags.includes('user-created')).length);
+      console.log('🔍 CHATBOT DEBUG: Message intent keywords check:');
+      console.log('  - Contains "create workflow":', input.toLowerCase().includes('create workflow'));
+      console.log('  - Contains "create a workflow":', input.toLowerCase().includes('create a workflow'));
+      console.log('  - Contains "get me the workflow":', input.toLowerCase().includes('get me the workflow'));
+      console.log('  - Contains "from templates":', input.toLowerCase().includes('from templates'));
+      console.log('  - Raw numbers extracted:', input.match(/\b\d+(?:\.\d+)?\b/g));
+      console.log('🔍 CHATBOT DEBUG: User message:', input.trim());
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: input.trim(),
-          templates,
+          templates: currentTemplates, // Use fresh templates from store
           context: {
             currentWorkflow: useWorkflowStore.getState().activeWorkflow,
             recentMessages: messages.slice(-5),
@@ -171,19 +185,119 @@ export function Chatbot() {
     }
   };
 
-  const loadSuggestedWorkflow = (workflowId: string) => {
-    const template = templates.find(t => t.id === workflowId);
-    if (template) {
-      loadTemplate(template);
+    const loadSuggestedWorkflow = (workflowId: string) => {
+    const workflow = templates.find(t => t.id === workflowId);
+    if (workflow) {
+      loadTemplate(workflow);
+    }
+  };
 
-      // Add confirmation message
-      const confirmMessage: ChatMessage = {
-        id: `msg-${Date.now()}-load`,
+  const handleSuggestionClick = async (suggestionText: string) => {
+    if (isLoading) return; // Prevent multiple clicks during loading
+    
+    setInput(suggestionText);
+    
+    // Create user message
+    const userMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      content: suggestionText,
+      timestamp: new Date(),
+    };
+
+    addMessage(userMessage);
+    setLoading(true);
+
+    // Set orchestration steps
+    const steps = [
+      '🤖 Analyzing request with AI Orchestrator...',
+      '🔍 Performing deep analysis of mathematical concepts...',
+      '🎯 Determining intent and confidence level...',
+      '⚙️ Creating orchestration plan...',
+      '📊 Coordinating multiple AI tools...',
+      '🔄 Processing workflow actions...',
+      '✨ Generating intelligent response...'
+    ];
+    
+    setOrchestrationSteps(steps);
+    setCurrentStep(0);
+
+    // Simulate orchestration steps progression
+    const stepInterval = setInterval(() => {
+      setCurrentStep((prev) => {
+        if (prev < steps.length - 1) {
+          return prev + 1;
+        } else {
+          clearInterval(stepInterval);
+          return prev;
+        }
+      });
+    }, 800);
+
+    try {
+      const currentTemplates = useWorkflowStore.getState().templates;
+      
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: suggestionText,
+          templates: currentTemplates,
+          context: {
+            currentWorkflow: useWorkflowStore.getState().activeWorkflow,
+            recentMessages: messages.slice(-5),
+            userHistory: messages.filter(m => m.role === 'user').map(m => m.content).slice(-10),
+          },
+        }),
+      });
+
+      clearInterval(stepInterval);
+
+      if (!response.ok) {
+        throw new Error('Failed to get response from AI');
+      }
+
+      const data = await response.json();
+      
+      const assistantMessage: ChatMessage = {
+        id: `msg-${Date.now()}-ai`,
         role: 'assistant',
-        content: `✅ Loaded "${template.name}" workflow! You can see it in the workflow builder on the left. Enter your values and click Execute to run the calculation.`,
+        content: data.message,
+        timestamp: new Date(),
+        orchestration: data.orchestration,
+        workflowSuggestions: data.suggestions,
+        personalizedSuggestions: data.personalizedSuggestions,
+        createdWorkflow: data.createdWorkflow?.id || null,
+        createdWorkflowName: data.createdWorkflow?.name || null,
+        fallbackAnalysis: data.analysis
+      };
+
+      addMessage(assistantMessage);
+
+      // Handle workflow creation or loading
+      if (data.createdWorkflow) {
+        addTemplate(data.createdWorkflow);
+        loadTemplate(data.createdWorkflow);
+      }
+
+      if (data.foundWorkflow) {
+        loadTemplate(data.foundWorkflow);
+      }
+
+    } catch (error) {
+      clearInterval(stepInterval);
+      console.error('Error sending message:', error);
+      
+      const errorMessage: ChatMessage = {
+        id: `msg-${Date.now()}-error`,
+        role: 'assistant',
+        content: 'Sorry, I encountered an error processing your request. Please try again.',
         timestamp: new Date(),
       };
-      addMessage(confirmMessage);
+      addMessage(errorMessage);
+    } finally {
+      setLoading(false);
+      setInput('');
     }
   };
 
@@ -316,26 +430,39 @@ export function Chatbot() {
                 </div>
               )}
 
-              {/* Personalized Learning Suggestions */}
+              {/* Personalized Learning Suggestions - Clickable */}
               {message.personalizedSuggestions && message.personalizedSuggestions.length > 0 && (
                 <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-teal-50 border border-green-200 rounded-lg">
                   <div className="text-sm font-semibold text-green-800 mb-2">
-                    📚 Personalized Learning Path
+                    � Quick Actions - Click to Try:
                   </div>
-                  <div className="space-y-1">
-                    {message.personalizedSuggestions.slice(0, 3).map((suggestion, index) => {
+                  <div className="space-y-2">
+                    {message.personalizedSuggestions.slice(0, 4).map((suggestion, index) => {
                       // Ensure suggestion is a string, handle both object and string formats
                       const suggestionText = typeof suggestion === 'string' 
                         ? suggestion 
                         : (suggestion as any)?.suggestion || (suggestion as any)?.title || String(suggestion);
                       
                       return (
-                        <div key={index} className="text-xs text-green-700 flex items-start gap-2">
-                          <span className="text-green-500 font-bold">{index + 1}.</span>
-                          <span>{suggestionText}</span>
-                        </div>
+                        <button
+                          key={index}
+                          onClick={() => handleSuggestionClick(suggestionText)}
+                          className="w-full text-left p-2 bg-white border border-green-300 rounded-md hover:bg-green-50 hover:border-green-400 transition-colors duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={isLoading}
+                        >
+                          <div className="text-sm text-green-700 flex items-center gap-2">
+                            <span className="text-green-500 font-bold text-xs">{index + 1}.</span>
+                            <span className="flex-1">{suggestionText}</span>
+                            <span className="text-green-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                              →
+                            </span>
+                          </div>
+                        </button>
                       );
                     })}
+                  </div>
+                  <div className="text-xs text-green-600 mt-2 opacity-75">
+                    Click any suggestion to try it instantly!
                   </div>
                 </div>
               )}

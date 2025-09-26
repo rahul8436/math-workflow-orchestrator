@@ -1,10 +1,8 @@
 'use client';
-
 import { useState } from 'react';
-import { Play, Square, RotateCcw, Save, Download, Upload } from 'lucide-react';
+import { Play, Square, RotateCcw, Save, Download, Upload, ChevronDown, ChevronUp, Bug } from 'lucide-react';
 import { useWorkflowStore } from '@/stores/workflow-store';
 import { workflowExecutor } from '@/lib/workflow-executor';
-
 export function WorkflowControls() {
   const {
     activeWorkflow,
@@ -16,10 +14,9 @@ export function WorkflowControls() {
     clearWorkflow,
     setNodes,
   } = useWorkflowStore();
-
   const [inputs, setInputs] = useState<Record<string, number>>({});
   const [isExecuting, setIsExecuting] = useState(false);
-
+  const [isDebugExpanded, setIsDebugExpanded] = useState(false); // Debug panel state
   // Get variable nodes that need input values
   const getVariableNodes = () => {
     return nodes.filter(node =>
@@ -27,23 +24,18 @@ export function WorkflowControls() {
       node.type === 'variable'
     );
   };
-
   const executeWorkflow = async () => {
     if (!activeWorkflow || nodes.length === 0) return;
-
     setIsExecuting(true);
     try {
       // Get all operand values from nodes in order
       const operandNodes = nodes.filter(node => node.type === 'operand');
       const operandValues = operandNodes.map(node => Number(node.data.value ?? 0));
-
       console.log('All operand nodes:', operandNodes);
       console.log('All operand values:', operandValues);
       console.log('Active workflow operations:', activeWorkflow.operations);
-
       // Handle different workflow types and complex operations
       let result = 0;
-
       if (activeWorkflow.operations.length === 1) {
         // Single operation workflows
         const operation = activeWorkflow.operations[0];
@@ -69,9 +61,7 @@ export function WorkflowControls() {
         // Complex operations - handle multiple operations in sequence
         result = calculateComplexExpression(operandValues, activeWorkflow.operations);
       }
-
       console.log('Final calculated result:', result);
-
       // Create execution object
       const execution = {
         id: `exec-${Date.now()}`,
@@ -85,10 +75,8 @@ export function WorkflowControls() {
         timestamp: new Date(),
         duration: 10
       };
-
       addExecution(execution);
       setCurrentExecution(execution);
-
       // Update result nodes using direct ReactFlow method
       if ((window as any).updateWorkflowResult) {
         (window as any).updateWorkflowResult(result);
@@ -96,7 +84,6 @@ export function WorkflowControls() {
         // Fallback method
         await updateResultNodesDirectly(result);
       }
-
     } catch (error: any) {
       console.error('Execution error:', error);
       alert(`Execution failed: ${error?.message || 'Unknown error'}`);
@@ -104,18 +91,14 @@ export function WorkflowControls() {
       setIsExecuting(false);
     }
   };
-
   // Calculate complex expressions with multiple operations
   const calculateComplexExpression = (values: number[], operations: string[]): number => {
     if (values.length < 2 || operations.length === 0) return 0;
-
     let result = values[0];
-
     // Apply operations in sequence
     for (let i = 0; i < operations.length && i + 1 < values.length; i++) {
       const operation = operations[i];
       const nextValue = values[i + 1];
-
       switch (operation) {
         case 'addition':
           result += nextValue;
@@ -131,16 +114,12 @@ export function WorkflowControls() {
           break;
       }
     }
-
     return result;
   };
-
   const updateResultNodesDirectly = async (result: number) => {
     console.log('🎯 Updating result nodes with value:', result);
-
     // Force update both store and local state
     const { nodes: storeNodes, setNodes: setStoreNodes } = useWorkflowStore.getState();
-
     // Update workflow store first
     const updatedStoreNodes = storeNodes.map(node => {
       if (node.type === 'result') {
@@ -155,9 +134,7 @@ export function WorkflowControls() {
       }
       return node;
     });
-
     setStoreNodes(updatedStoreNodes);
-
     // Update local nodes state
     const updatedLocalNodes = nodes.map(node => {
       if (node.type === 'result') {
@@ -172,21 +149,16 @@ export function WorkflowControls() {
       }
       return node;
     });
-
     setNodes(updatedLocalNodes);
-
     // Force a re-render
     setTimeout(() => {
       setNodes([...updatedLocalNodes]);
     }, 50);
   };
-
   const updateResultNodes = updateResultNodesDirectly;
-
   const resetWorkflow = () => {
     setCurrentExecution(null);
     setInputs({});
-
     // Reset all result nodes to show no value
     const updatedNodes = nodes.map(node => {
       if (node.type === 'result') {
@@ -200,10 +172,8 @@ export function WorkflowControls() {
       }
       return node;
     });
-
     setNodes(updatedNodes);
   };
-
   const clearCurrentWorkflow = () => {
     if (confirm('Clear current workflow? This will remove all nodes and connections.')) {
       clearWorkflow();
@@ -211,26 +181,20 @@ export function WorkflowControls() {
       setCurrentExecution(null);
     }
   };
-
   const saveWorkflow = () => {
     if (!activeWorkflow) return;
-
     // Create a downloadable JSON file
     const dataStr = JSON.stringify(activeWorkflow, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-
     const exportFileDefaultName = `${activeWorkflow.name.toLowerCase().replace(/\s+/g, '-')}.json`;
-
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
   };
-
   const variableNodes = getVariableNodes();
   const canExecute = activeWorkflow && nodes.length > 0 && !isExecuting;
   const hasResult = currentExecution !== null;
-
   return (
     <div className="space-y-3">
       {/* Workflow Info - More compact */}
@@ -244,7 +208,6 @@ export function WorkflowControls() {
           </p>
         </div>
       )}
-
       {/* Variable Inputs - Compact */}
       {variableNodes.length > 0 && (
         <div className="space-y-2">
@@ -273,7 +236,6 @@ export function WorkflowControls() {
           })}
         </div>
       )}
-
       {/* Execution Result - Compact */}
       {hasResult && currentExecution && (
         <div className="p-2 bg-green-50 border border-green-200 rounded-lg">
@@ -287,7 +249,6 @@ export function WorkflowControls() {
           </div>
         </div>
       )}
-
       {/* Control Buttons - More compact */}
       <div className="grid grid-cols-2 gap-1">
         <button
@@ -306,7 +267,6 @@ export function WorkflowControls() {
           )}
           Execute
         </button>
-
         <button
           onClick={resetWorkflow}
           disabled={!hasResult}
@@ -319,7 +279,6 @@ export function WorkflowControls() {
           <RotateCcw className="w-3 h-3" />
           Reset
         </button>
-
         <button
           onClick={saveWorkflow}
           disabled={!activeWorkflow}
@@ -332,7 +291,6 @@ export function WorkflowControls() {
           <Download className="w-3 h-3" />
           Export
         </button>
-
         <button
           onClick={clearCurrentWorkflow}
           disabled={nodes.length === 0}
@@ -346,15 +304,134 @@ export function WorkflowControls() {
           Clear
         </button>
       </div>
-
-      {/* Quick Stats - Compact */}
-      <div className="text-xs text-gray-500 text-center border-t pt-2">
-        {nodes.length} nodes • {edges.length} connections
+      {/* Debug Section - Expandable */}
+      <div className="border-t pt-2">
+        {/* Debug Header - Always visible with stats */}
+        <button
+          onClick={() => setIsDebugExpanded(!isDebugExpanded)}
+          className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Bug className="w-3 h-3" />
+            <span>{nodes.length} nodes • {edges.length} connections</span>
+          </div>
+          {isDebugExpanded ? (
+            <ChevronUp className="w-3 h-3" />
+          ) : (
+            <ChevronDown className="w-3 h-3" />
+          )}
+        </button>
+        {/* Expanded Debug Information */}
+        {isDebugExpanded && (
+          <div className="mt-2 space-y-2 text-xs">
+            {/* Live Node Values */}
+            <div className="space-y-1">
+              <div className="font-medium text-gray-600 flex items-center gap-1">
+                <span>Live Node Values:</span>
+              </div>
+              <div className="space-y-1 max-h-32 overflow-y-auto bg-gray-50 rounded p-2">
+                {nodes.map((node) => (
+                  <div key={node.id} className="flex items-center justify-between py-1 px-2 bg-white rounded border">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        node.type === 'operand' ? 'bg-blue-100 text-blue-700' :
+                        node.type === 'operator' ? 'bg-purple-100 text-purple-700' :
+                        node.type === 'result' ? 'bg-green-100 text-green-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {node.type}
+                      </span>
+                      <span className="font-medium">{node.data.label}</span>
+                    </div>
+                    <div className="text-right">
+                      {node.data.value !== undefined ? (
+                        <span className="font-mono text-green-600 font-bold">
+                          {node.data.value}
+                        </span>
+                      ) : node.data.operation ? (
+                        <span className="font-mono text-purple-600">
+                          {getOperatorSymbol(node.data.operation)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Execution State */}
+            {currentExecution && (
+              <div className="space-y-1">
+                <div className="font-medium text-gray-600">Execution State:</div>
+                <div className="bg-green-50 rounded p-2 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Result:</span>
+                    <span className="font-mono font-bold text-green-700">
+                      {currentExecution.result}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Duration:</span>
+                    <span className="font-mono">{currentExecution.duration}ms</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Timestamp:</span>
+                    <span className="font-mono">
+                      {new Date(currentExecution.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Workflow Info */}
+            {activeWorkflow && (
+              <div className="space-y-1">
+                <div className="font-medium text-gray-600">Workflow Info:</div>
+                <div className="bg-blue-50 rounded p-2 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Name:</span>
+                    <span className="font-medium text-right">{activeWorkflow.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Operations:</span>
+                    <span className="font-mono text-purple-600">
+                      {activeWorkflow.operations.map(op => getOperatorSymbol(op)).join(' ')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Complexity:</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      activeWorkflow.complexity === 'basic' ? 'bg-green-100 text-green-700' :
+                      activeWorkflow.complexity === 'intermediate' ? 'bg-yellow-100 text-yellow-700' :
+                      activeWorkflow.complexity === 'advanced' ? 'bg-orange-100 text-orange-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {activeWorkflow.complexity}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Connection Map */}
+            <div className="space-y-1">
+              <div className="font-medium text-gray-600">Connections:</div>
+              <div className="bg-gray-50 rounded p-2 space-y-1 max-h-24 overflow-y-auto">
+                {edges.map((edge) => (
+                  <div key={edge.id} className="flex items-center justify-center text-xs">
+                    <span className="font-mono text-blue-600">{edge.source}</span>
+                    <span className="mx-2 text-gray-400">→</span>
+                    <span className="font-mono text-green-600">{edge.target}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
 function getOperatorSymbol(operation: string): string {
   const mapping: Record<string, string> = {
     'addition': '+',

@@ -5,9 +5,10 @@ import { useWorkflowStore } from '@/stores/workflow-store';
 import { WorkflowBuilder } from './WorkflowBuilder/WorkflowBuilder';
 import { Chatbot } from './Chatbot/Chatbot';
 import { defaultWorkflowTemplates } from '@/data/workflow-templates';
+import { ChatMessage } from '@/types/workflow';
 
 export function WorkflowOrchestrator() {
-  const { templates, addTemplate } = useWorkflowStore();
+  const { templates, addTemplate, messages } = useWorkflowStore();
 
   // Initialize with default templates
   useEffect(() => {
@@ -17,6 +18,35 @@ export function WorkflowOrchestrator() {
       });
     }
   }, [templates.length, addTemplate]);
+
+  // Add welcome message with demo suggestions when app loads
+  useEffect(() => {
+    if (messages.length === 0) {
+      const welcomeMessage: ChatMessage = {
+        id: 'welcome-msg',
+        role: 'assistant',
+        content: `🎯 **Welcome to the Mathematical Workflow Orchestrator!**
+
+I'm your AI assistant for creating and managing mathematical workflows. Here's what I can help you with:
+
+• **Create new workflows** from expressions
+• **Find existing workflows** in your templates  
+• **Execute calculations** with instant results
+• **Explain concepts** and guide your learning
+
+Try clicking any of the suggestions below to see me in action!`,
+        timestamp: new Date(),
+        personalizedSuggestions: [
+          "Create workflow for 10 + 15",
+          "Find workflow for 3 + 5", 
+          "Create workflow for (25 + 35) / 6",
+          "Calculate 45 × 2"
+        ]
+      };
+      
+      useWorkflowStore.getState().addMessage(welcomeMessage);
+    }
+  }, [messages.length]);
 
   return (
     <div className="flex h-screen bg-gray-50" style={{ color: '#111827' }}>

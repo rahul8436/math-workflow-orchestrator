@@ -94,6 +94,342 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
     usageCount: 0
   },
   {
+    id: 'demo-10-plus-15',
+    name: 'Demo: 10 + 15',
+    description: 'Easy demo calculation: 10 + 15 = 25',
+    pattern: '10 + 15',
+    complexity: 'basic',
+    operations: ['addition'],
+    operandCount: 2,
+    nodes: [
+      {
+        id: 'operand-1',
+        type: 'operand',
+        position: { x: 100, y: 100 },
+        data: { value: 10, label: '10' }
+      },
+      {
+        id: 'operator-1',
+        type: 'operator',
+        position: { x: 300, y: 100 },
+        data: { operation: 'addition', label: '+' }
+      },
+      {
+        id: 'operand-2',
+        type: 'operand',
+        position: { x: 100, y: 200 },
+        data: { value: 15, label: '15' }
+      },
+      {
+        id: 'result-1',
+        type: 'result',
+        position: { x: 500, y: 150 },
+        data: { label: 'Result (25)' }
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'operand-1', target: 'operator-1' },
+      { id: 'e2', source: 'operand-2', target: 'operator-1' },
+      { id: 'e3', source: 'operator-1', target: 'result-1' }
+    ],
+    tags: ['addition', 'demo', 'ten', 'fifteen', 'twenty-five'],
+    examples: ['10 + 15', '10+15'],
+    exactValues: [10, 15],
+    exactExpression: '10+15',
+    createdAt: new Date('2024-01-01'),
+    usageCount: 0
+  },
+  {
+    id: 'demo-20-minus-8',
+    name: 'Demo: 20 - 8',
+    description: 'Easy demo subtraction: 20 - 8 = 12',
+    pattern: '20 - 8',
+    complexity: 'basic',
+    operations: ['subtraction'],
+    operandCount: 2,
+    nodes: [
+      {
+        id: 'operand-1',
+        type: 'operand',
+        position: { x: 100, y: 100 },
+        data: { value: 20, label: '20' }
+      },
+      {
+        id: 'operator-1',
+        type: 'operator',
+        position: { x: 300, y: 100 },
+        data: { operation: 'subtraction', label: '-' }
+      },
+      {
+        id: 'operand-2',
+        type: 'operand',
+        position: { x: 100, y: 200 },
+        data: { value: 8, label: '8' }
+      },
+      {
+        id: 'result-1',
+        type: 'result',
+        position: { x: 500, y: 150 },
+        data: { label: 'Result (12)' }
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'operand-1', target: 'operator-1' },
+      { id: 'e2', source: 'operand-2', target: 'operator-1' },
+      { id: 'e3', source: 'operator-1', target: 'result-1' }
+    ],
+    tags: ['subtraction', 'demo', 'twenty', 'eight', 'twelve'],
+    examples: ['20 - 8', '20-8'],
+    exactValues: [20, 8],
+    exactExpression: '20-8',
+    createdAt: new Date('2024-01-01'),
+    usageCount: 0
+  },
+  {
+    id: 'demo-6-times-4',
+    name: 'Demo: 6 × 4',
+    description: 'Easy demo multiplication: 6 × 4 = 24',
+    pattern: '6 * 4',
+    complexity: 'basic',
+    operations: ['multiplication'],
+    operandCount: 2,
+    nodes: [
+      {
+        id: 'operand-1',
+        type: 'operand',
+        position: { x: 100, y: 100 },
+        data: { value: 6, label: '6' }
+      },
+      {
+        id: 'operator-1',
+        type: 'operator',
+        position: { x: 300, y: 100 },
+        data: { operation: 'multiplication', label: '×' }
+      },
+      {
+        id: 'operand-2',
+        type: 'operand',
+        position: { x: 100, y: 200 },
+        data: { value: 4, label: '4' }
+      },
+      {
+        id: 'result-1',
+        type: 'result',
+        position: { x: 500, y: 150 },
+        data: { label: 'Result (24)' }
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'operand-1', target: 'operator-1' },
+      { id: 'e2', source: 'operand-2', target: 'operator-1' },
+      { id: 'e3', source: 'operator-1', target: 'result-1' }
+    ],
+    tags: ['multiplication', 'demo', 'six', 'four', 'twenty-four'],
+    examples: ['6 * 4', '6×4', '6 times 4'],
+    exactValues: [6, 4],
+    exactExpression: '6*4',
+    createdAt: new Date('2024-01-01'),
+    usageCount: 0
+  },
+  {
+    id: 'demo-30-divide-6',
+    name: 'Demo: 30 ÷ 6',
+    description: 'Easy demo division: 30 ÷ 6 = 5',
+    pattern: '30 / 6',
+    complexity: 'basic',
+    operations: ['division'],
+    operandCount: 2,
+    nodes: [
+      {
+        id: 'operand-1',
+        type: 'operand',
+        position: { x: 100, y: 100 },
+        data: { value: 30, label: '30' }
+      },
+      {
+        id: 'operator-1',
+        type: 'operator',
+        position: { x: 300, y: 100 },
+        data: { operation: 'division', label: '÷' }
+      },
+      {
+        id: 'operand-2',
+        type: 'operand',
+        position: { x: 100, y: 200 },
+        data: { value: 6, label: '6' }
+      },
+      {
+        id: 'result-1',
+        type: 'result',
+        position: { x: 500, y: 150 },
+        data: { label: 'Result (5)' }
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'operand-1', target: 'operator-1' },
+      { id: 'e2', source: 'operand-2', target: 'operator-1' },
+      { id: 'e3', source: 'operator-1', target: 'result-1' }
+    ],
+    tags: ['division', 'demo', 'thirty', 'six', 'five'],
+    examples: ['30 / 6', '30÷6', '30 divided by 6'],
+    exactValues: [30, 6],
+    exactExpression: '30/6',
+    createdAt: new Date('2024-01-01'),
+    usageCount: 0
+  },
+  {
+    id: 'demo-25-plus-35',
+    name: 'Demo: 25 + 35',
+    description: 'Medium demo calculation: 25 + 35 = 60',
+    pattern: '25 + 35',
+    complexity: 'basic',
+    operations: ['addition'],
+    operandCount: 2,
+    nodes: [
+      {
+        id: 'operand-1',
+        type: 'operand',
+        position: { x: 100, y: 100 },
+        data: { value: 25, label: '25' }
+      },
+      {
+        id: 'operator-1',
+        type: 'operator',
+        position: { x: 300, y: 100 },
+        data: { operation: 'addition', label: '+' }
+      },
+      {
+        id: 'operand-2',
+        type: 'operand',
+        position: { x: 100, y: 200 },
+        data: { value: 35, label: '35' }
+      },
+      {
+        id: 'result-1',
+        type: 'result',
+        position: { x: 500, y: 150 },
+        data: { label: 'Result (60)' }
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'operand-1', target: 'operator-1' },
+      { id: 'e2', source: 'operand-2', target: 'operator-1' },
+      { id: 'e3', source: 'operator-1', target: 'result-1' }
+    ],
+    tags: ['addition', 'demo', 'twenty-five', 'thirty-five', 'sixty'],
+    examples: ['25 + 35', '25+35'],
+    exactValues: [25, 35],
+    exactExpression: '25+35',
+    createdAt: new Date('2024-01-01'),
+    usageCount: 0
+  },
+  {
+    id: 'demo-12-times-5',
+    name: 'Demo: 12 × 5',
+    description: 'Medium demo multiplication: 12 × 5 = 60',
+    pattern: '12 * 5',
+    complexity: 'basic',
+    operations: ['multiplication'],
+    operandCount: 2,
+    nodes: [
+      {
+        id: 'operand-1',
+        type: 'operand',
+        position: { x: 100, y: 100 },
+        data: { value: 12, label: '12' }
+      },
+      {
+        id: 'operator-1',
+        type: 'operator',
+        position: { x: 300, y: 100 },
+        data: { operation: 'multiplication', label: '×' }
+      },
+      {
+        id: 'operand-2',
+        type: 'operand',
+        position: { x: 100, y: 200 },
+        data: { value: 5, label: '5' }
+      },
+      {
+        id: 'result-1',
+        type: 'result',
+        position: { x: 500, y: 150 },
+        data: { label: 'Result (60)' }
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'operand-1', target: 'operator-1' },
+      { id: 'e2', source: 'operand-2', target: 'operator-1' },
+      { id: 'e3', source: 'operator-1', target: 'result-1' }
+    ],
+    tags: ['multiplication', 'demo', 'twelve', 'five', 'sixty'],
+    examples: ['12 * 5', '12×5', '12 times 5'],
+    exactValues: [12, 5],
+    exactExpression: '12*5',
+    createdAt: new Date('2024-01-01'),
+    usageCount: 0
+  },
+  {
+    id: 'demo-compound-calc',
+    name: 'Demo: (8 + 12) ÷ 4',
+    description: 'Compound demo: (8 + 12) ÷ 4 = 5',
+    pattern: '(8 + 12) / 4',
+    complexity: 'intermediate',
+    operations: ['addition', 'division'],
+    operandCount: 3,
+    nodes: [
+      {
+        id: 'operand-1',
+        type: 'operand',
+        position: { x: 50, y: 100 },
+        data: { value: 8, label: '8' }
+      },
+      {
+        id: 'operator-1',
+        type: 'operator',
+        position: { x: 200, y: 100 },
+        data: { operation: 'addition', label: '+' }
+      },
+      {
+        id: 'operand-2',
+        type: 'operand',
+        position: { x: 50, y: 200 },
+        data: { value: 12, label: '12' }
+      },
+      {
+        id: 'operator-2',
+        type: 'operator',
+        position: { x: 400, y: 150 },
+        data: { operation: 'division', label: '÷' }
+      },
+      {
+        id: 'operand-3',
+        type: 'operand',
+        position: { x: 200, y: 300 },
+        data: { value: 4, label: '4' }
+      },
+      {
+        id: 'result-1',
+        type: 'result',
+        position: { x: 600, y: 150 },
+        data: { label: 'Result (5)' }
+      }
+    ],
+    edges: [
+      { id: 'e1', source: 'operand-1', target: 'operator-1' },
+      { id: 'e2', source: 'operand-2', target: 'operator-1' },
+      { id: 'e3', source: 'operator-1', target: 'operator-2' },
+      { id: 'e4', source: 'operand-3', target: 'operator-2' },
+      { id: 'e5', source: 'operator-2', target: 'result-1' }
+    ],
+    tags: ['compound', 'demo', 'parentheses', 'order-of-operations'],
+    examples: ['(8 + 12) / 4', '(8+12)÷4', '8 plus 12 divided by 4'],
+    exactValues: [8, 12, 4],
+    exactExpression: '(8+12)/4',
+    createdAt: new Date('2024-01-01'),
+    usageCount: 0
+  },
+  {
     id: 'basic-addition',
     name: 'Simple Addition',
     description: 'Add two numbers together',

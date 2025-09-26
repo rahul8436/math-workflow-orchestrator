@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import { AIAnalysis, WorkflowTemplate } from '@/types/workflow';
+import { AIAnalysis, WorkflowTemplate, OperationType } from '@/types/workflow';
 import { workflowMatcher } from '@/lib/workflow-matcher';
 import { expressionParser } from '@/lib/expression-parser';
 import { aiOrchestrator } from '@/lib/ai-orchestrator';
@@ -10,9 +10,97 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+// Helper functions for intent analysis
+function extractNumbers(text: string): number[] {
+  const numberMatches = text.match(/\b\d+(?:\.\d+)?\b/g);
+  return numberMatches ? numberMatches.map(num => parseFloat(num)) : [];
+}
+
+function extractOperationsFromText(text: string): OperationType[] {
+  const operations: OperationType[] = [];
+  const lowerText = text.toLowerCase();
+  
+  // Addition patterns
+  if (lowerText.includes('add') || lowerText.includes('+') || lowerText.includes('plus') || 
+      lowerText.includes('sum') || lowerText.includes('adding')) {
+    operations.push('addition');
+  }
+  
+  // Subtraction patterns  
+  if (lowerText.includes('subtract') || lowerText.includes('-') || lowerText.includes('minus')) {
+    operations.push('subtraction');
+  }
+  
+  // Multiplication patterns
+  if (lowerText.includes('multiply') || lowerText.includes('*') || lowerText.includes('times') || 
+      lowerText.includes('×') || lowerText.includes('multiplying')) {
+    operations.push('multiplication');
+  }
+  
+  // Division patterns - including compound phrases
+  if (lowerText.includes('divide') || lowerText.includes('/') || lowerText.includes('÷') || 
+      lowerText.includes('dividing') || lowerText.includes('divided by')) {
+    operations.push('division');
+  }
+  
+  return operations;
+}
+
+function extractVariables(text: string): string[] {
+  const variableMatches = text.match(/\b[a-z]\b/gi);
+  return variableMatches ? [...new Set(variableMatches.map(v => v.toLowerCase()))] : [];
+}
+
+function generateExpressionFromContext(text: string, numbers: number[], operations: string[]): string {
+  // Try to extract existing mathematical expressions first
+  const mathExpressionMatch = text.match(/[\d\s\+\-\*\/\(\)]+/g);
+  if (mathExpressionMatch && mathExpressionMatch.length > 0) {
+    const cleanExpression = mathExpressionMatch.join(' ').trim();
+    if (cleanExpression.length > 3) { // Basic validation
+      return cleanExpression;
+    }
+  }
+
+  // Handle compound operations with specific patterns
+  if (numbers.length >= 3 && operations.length >= 2) {
+    // Pattern: "adding X with Y and divide by Z" -> (X + Y) / Z
+    if (operations.includes('addition') && operations.includes('division')) {
+      return `(${numbers[0]} + ${numbers[1]}) / ${numbers[2]}`;
+    }
+    // Pattern: "multiply X with Y and subtract Z" -> (X * Y) - Z  
+    if (operations.includes('multiplication') && operations.includes('subtraction')) {
+      return `(${numbers[0]} * ${numbers[1]}) - ${numbers[2]}`;
+    }
+    // Default compound pattern
+    return `${numbers[0]} ${getOperatorSymbol(operations[0])} ${numbers[1]} ${getOperatorSymbol(operations[1])} ${numbers[2]}`;
+  }
+
+  // Handle simple two-number operations
+  if (numbers.length >= 2 && operations.length > 0) {
+    const op = getOperatorSymbol(operations[0]);
+    return `${numbers[0]} ${op} ${numbers[1]}`;
+  }
+
+  return '';
+}
+
+function getOperatorSymbol(operation: string): string {
+  switch (operation) {
+    case 'addition': return '+';
+    case 'subtraction': return '-';
+    case 'multiplication': return '*';
+    case 'division': return '/';
+    default: return '+';
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { message, templates, context } = await req.json();
+
+    console.log('🔍 API: Received templates count:', templates?.length || 0);
+    console.log('🔍 API: User-created workflows:', templates?.filter((t: any) => t.tags.includes('user-created')).length || 0);
+    console.log('🔍 API: Template IDs:', templates?.map((t: any) => ({ id: t.id, name: t.name })) || []);
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -39,12 +127,21 @@ export async function POST(req: NextRequest) {
 
       orchestrationPlan = await aiOrchestrator.orchestrateRequest(message, templates || []);
 
+      console.log('🎯 Chat API: Orchestration plan:', {
+        intent: orchestrationPlan.intent,
+        confidence: orchestrationPlan.confidence,
+        reasoning: orchestrationPlan.reasoning
+      });
+
       // Execute orchestrated actions
       for (const action of orchestrationPlan.suggestedActions) {
+        console.log('🔄 Chat API: Executing action:', action.type, 'with priority:', action.priority);
         switch (action.type) {
           case 'search_workflows':
             suggestions = workflowMatcher.findMatches(message, {
-              intent: orchestrationPlan.intent as any,
+              intent: orchestrationPlan.intent === 'find' ? 'find_workflow' : 
+                     orchestrationPlan.intent === 'create' ? 'create_workflow' : 
+                     orchestrationPlan.intent === 'execute' ? 'execute_workflow' : 'general',
               confidence: orchestrationPlan.confidence,
               extractedNumbers: [],
               extractedOperations: [],
@@ -52,19 +149,26 @@ export async function POST(req: NextRequest) {
               suggestedAction: action.reasoning
             });
             
-            // Auto-load high confidence matches
-            if (suggestions.length > 0 && orchestrationPlan.intent === 'find') {
+            // Auto-load high confidence matches for FIND operations
+            if (suggestions.length > 0 && orchestrationPlan.intent === 'find' && orchestrationPlan.confidence > 0.8) {
               const bestMatch = suggestions[0];
-              if (bestMatch.confidence > 0.8 && templates) {
+              if (bestMatch.confidence > 0.7 && templates) {
                 foundWorkflow = templates.find((t: WorkflowTemplate) => t.id === bestMatch.workflowId) || null;
+                console.log('🎯 Chat API: Auto-loading workflow:', foundWorkflow?.name);
               }
             }
             break;
 
           case 'create_workflow':
-            const createResult = await handleIntelligentWorkflowCreation(message, orchestrationPlan);
-            if (createResult.workflow) {
-              createdWorkflow = createResult.workflow;
+            // Only create if confidence is very high and no good existing matches
+            if (orchestrationPlan.confidence > 0.9 || suggestions.length === 0) {
+              const createResult = await handleIntelligentWorkflowCreation(message, orchestrationPlan);
+              if (createResult.workflow) {
+                createdWorkflow = createResult.workflow;
+                console.log('🏗️ Chat API: Created workflow:', createdWorkflow.name);
+              }
+            } else {
+              console.log('⚠️ Chat API: Skipping creation - found existing matches or low confidence');
             }
             break;
         }
@@ -129,128 +233,194 @@ export async function POST(req: NextRequest) {
 }
 
 async function analyzeUserIntent(message: string): Promise<AIAnalysis> {
-  const systemPrompt = `You are an AI assistant that analyzes user messages about mathematical workflows and expressions.
+  // Use LLM-based intent classification with comprehensive fallback chain
+  const intentAnalysis = await performLLMIntentClassification(message);
+  if (intentAnalysis) {
+    return intentAnalysis;
+  }
 
-Analyze the user's message and extract:
-1. Intent: 'find_workflow', 'create_workflow', 'execute_workflow', 'explain', or 'general'
-2. Mathematical expression if present
-3. Numbers mentioned
-4. Operations mentioned (addition, subtraction, multiplication, division, etc.)
-5. Variables mentioned (x, y, z, etc.)
-6. Confidence level (0-1)
-7. Suggested action
-
-Respond ONLY with a JSON object in this exact format:
-{
-  "intent": "find_workflow|create_workflow|execute_workflow|explain|general",
-  "expression": "mathematical expression if present",
-  "extractedNumbers": [array of numbers],
-  "extractedOperations": [array of operations],
-  "variables": [array of variable names],
-  "confidence": 0.0-1.0,
-  "suggestedAction": "brief description of what should be done"
+  // Ultimate fallback - manual pattern matching (should rarely be needed)
+  return performFallbackIntentAnalysis(message);
 }
 
-Examples:
-- "I need to calculate 3 + 5" -> intent: "execute_workflow"
-- "Create a workflow for x + y - z" -> intent: "create_workflow"
-- "What workflow do I need for addition?" -> intent: "find_workflow"
-- "How does multiplication work?" -> intent: "explain"`;
+async function performLLMIntentClassification(message: string): Promise<AIAnalysis | null> {
+  const systemPrompt = `You are a strict intent classifier for mathematical workflow commands. Analyze the user's message and classify the intent with high precision.
 
-  // Try multiple models with fallback
-  const models = [
-    { id: getModelForTask('analysis'), desc: 'primary analysis' },
-    { id: getModelForTask('simple'), desc: 'fallback simple' },
-    { id: getModelForTask('fallback'), desc: 'fallback reliable' }
+INTENT CLASSIFICATION RULES:
+
+🔍 FIND_WORKFLOW - User wants to locate existing workflows:
+- Keywords: "get", "find", "show", "search", "from templates", "existing", "what workflow", "which workflow"
+- Examples: "get me the workflow from templates", "find workflow for 3+5", "show me existing addition workflow"
+
+🏗️ CREATE_WORKFLOW - User wants to build new workflows:
+- Keywords: "create", "make", "build", "generate", "new", "design"  
+- Examples: "create workflow for x+y", "make a workflow", "build new calculation"
+
+▶️ EXECUTE_WORKFLOW - User wants to calculate/run expressions:
+- Keywords: "calculate", "compute", "solve", "what is", "execute", "run"
+- Examples: "calculate 5+3", "what is 10*2", "solve this expression"
+
+❓ EXPLAIN - User wants explanations/help:
+- Keywords: "explain", "how", "why", "help", "what does", "understand"
+- Examples: "explain workflows", "how does addition work", "help me understand"
+
+🗨️ GENERAL - Conversational/unclear intent:
+- Everything else, greetings, unclear requests
+
+CRITICAL RULES:
+- If message contains "create" + expression → CREATE_WORKFLOW (confidence: 0.95+)
+- If message contains "get/find" + "templates/existing" → FIND_WORKFLOW (confidence: 0.95+)
+- If message contains "calculate/what is" + numbers → EXECUTE_WORKFLOW (confidence: 0.9+)
+
+User Message: "${message}"
+
+Respond with ONLY this JSON format:
+{
+  "intent": "find_workflow|create_workflow|execute_workflow|explain|general",
+  "expression": "extracted mathematical expression or empty string",
+  "extractedNumbers": [array of numbers found],
+  "extractedOperations": ["addition|subtraction|multiplication|division"],
+  "variables": ["x", "y", "z"],
+  "confidence": 0.0-1.0,
+  "suggestedAction": "brief explanation of reasoning",
+  "reasoning": "detailed explanation of why this intent was chosen"
+}`;
+
+  // Comprehensive model fallback chain for intent classification
+  const intentModels = [
+    { id: 'llama-3.3-70b-versatile', name: 'Primary Analysis' },
+    { id: 'openai/gpt-oss-120b', name: 'OpenAI 120B Backup' }, 
+    { id: 'llama-3.1-8b-instant', name: 'Fast Fallback' },
+    { id: 'openai/gpt-oss-20b', name: 'OpenAI 20B Fallback' },
+    { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Preview' },
+    { id: 'qwen/qwen3-32b', name: 'Qwen Alternative' },
+    { id: 'moonshotai/kimi-k2-instruct-0905', name: 'Moonshot Emergency' }
   ];
 
-  for (const modelInfo of models) {
+  for (const model of intentModels) {
     try {
-      const maxTokens = getMaxTokensForModel(modelInfo.id);
+      console.log(`🎯 Intent Classification: Trying ${model.name} (${model.id})`);
       
       const completion = await groq.chat.completions.create({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
-        model: modelInfo.id,
-        temperature: 0.1,
-        max_tokens: Math.min(maxTokens, 500)
+        model: model.id,
+        temperature: 0.1, // Low temperature for consistent classification
+        max_tokens: 800,
+        response_format: { type: "json_object" }
       });
 
       const analysisText = completion.choices[0]?.message?.content || '{}';
-      console.log(`AI response from ${modelInfo.desc} model (${modelInfo.id}):`, analysisText);
+      console.log(`✅ Intent Analysis from ${model.name}:`, analysisText);
 
       let analysis;
       try {
-        // Try to extract JSON from the response
-        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-        const jsonStr = jsonMatch ? jsonMatch[0] : analysisText;
-        analysis = JSON.parse(jsonStr);
+        analysis = JSON.parse(analysisText);
       } catch (parseError) {
-        console.error(`JSON parse error with ${modelInfo.desc} model:`, parseError);
+        console.error(`❌ JSON parse error with ${model.name}:`, parseError);
         continue; // Try next model
       }
 
+      // Validate analysis structure
+      if (!analysis.intent || !analysis.confidence) {
+        console.error(`❌ Invalid analysis structure from ${model.name}`);
+        continue;
+      }
+
+      // Return successful analysis
       return {
         intent: analysis.intent || 'general',
-        expression: analysis.expression,
+        expression: analysis.expression || '',
         extractedNumbers: analysis.extractedNumbers || [],
         extractedOperations: analysis.extractedOperations || [],
         variables: analysis.variables || [],
         confidence: analysis.confidence || 0.5,
-        suggestedAction: analysis.suggestedAction || 'Process the request'
+        suggestedAction: analysis.suggestedAction || 'Process user request',
+        reasoning: analysis.reasoning || `Classified by ${model.name}`
       };
 
-    } catch (error) {
-      console.error(`AI analysis failed with ${modelInfo.desc} model (${modelInfo.id}):`, error);
-      if (modelInfo === models[models.length - 1]) {
-        // This was the last model, fallback to manual analysis
-        console.error('All AI models failed, using fallback analysis');
-        return createFallbackAnalysis(message);
+    } catch (error: any) {
+      console.error(`❌ Intent classification failed with ${model.name}:`, error.message);
+      
+      // Handle rate limits specifically
+      if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+        console.log(`⚠️ Rate limit hit for ${model.name}, trying next model...`);
+        continue;
       }
-      // Try next model
-      continue;
+      
+      // Handle other API errors
+      if (error.message?.includes('model') && error.message?.includes('not found')) {
+        console.log(`⚠️ Model ${model.id} not available, trying next...`);
+        continue;
+      }
+      
+      continue; // Try next model for any other error
     }
   }
 
-  // Fallback analysis (should not reach here, but just in case)
-  return createFallbackAnalysis(message);
+  console.error('❌ All intent classification models failed');
+  return null;
 }
 
-function createFallbackAnalysis(message: string): AIAnalysis {
-  const lowerMessage = message.toLowerCase();
-
-  // Extract numbers
-  const numbers = message.match(/\d+(\.\d+)?/g)?.map(Number) || [];
-
-  // Extract operations
-  const operations = [];
-  if (lowerMessage.includes('+') || lowerMessage.includes('add')) operations.push('addition');
-  if (lowerMessage.includes('-') || lowerMessage.includes('subtract')) operations.push('subtraction');
-  if (lowerMessage.includes('*') || lowerMessage.includes('multiply')) operations.push('multiplication');
-  if (lowerMessage.includes('/') || lowerMessage.includes('divide')) operations.push('division');
-
-  // Determine intent
-  let intent = 'general';
-  if (lowerMessage.includes('create') || lowerMessage.includes('build') || lowerMessage.includes('make')) {
-    intent = 'create_workflow';
-  } else if (lowerMessage.includes('find') || lowerMessage.includes('need') || lowerMessage.includes('which')) {
-    intent = 'find_workflow';
-  } else if (lowerMessage.includes('calculate') || lowerMessage.includes('compute') || numbers.length > 0) {
-    intent = 'execute_workflow';
-  } else if (lowerMessage.includes('explain') || lowerMessage.includes('how') || lowerMessage.includes('what')) {
-    intent = 'explain';
+async function performFallbackIntentAnalysis(message: string): Promise<AIAnalysis> {
+  console.log('🔄 Using fallback intent analysis');
+  
+  // Simple pattern-based fallback
+  const lowerMessage = message.toLowerCase().trim();
+  const numbers = extractNumbers(message);
+  const operations = extractOperationsFromText(message);
+  const expression = generateExpressionFromContext(message, numbers, operations);
+  
+  // Basic intent classification
+  if (lowerMessage.includes('create') && (lowerMessage.includes('workflow') || numbers.length > 0)) {
+    return {
+      intent: 'create_workflow',
+      expression,
+      extractedNumbers: numbers,
+      extractedOperations: operations,
+      variables: extractVariables(message),
+      confidence: 0.8,
+      suggestedAction: 'Create new workflow (fallback analysis)'
+    };
   }
-
+  
+  if ((lowerMessage.includes('find') || lowerMessage.includes('get') || lowerMessage.includes('show')) && 
+      (lowerMessage.includes('workflow') || lowerMessage.includes('template'))) {
+    return {
+      intent: 'find_workflow',
+      expression,
+      extractedNumbers: numbers,
+      extractedOperations: operations,
+      variables: extractVariables(message),
+      confidence: 0.8,
+      suggestedAction: 'Find existing workflow (fallback analysis)'
+    };
+  }
+  
+  if (lowerMessage.includes('calculate') || lowerMessage.includes('what is') || 
+      (numbers.length >= 2 && operations.length > 0)) {
+    return {
+      intent: 'execute_workflow',
+      expression,
+      extractedNumbers: numbers,
+      extractedOperations: operations,
+      variables: extractVariables(message),
+      confidence: 0.7,
+      suggestedAction: 'Execute calculation (fallback analysis)'
+    };
+  }
+  
+  // Default to general
   return {
-    intent: intent as any,
-    expression: message.match(/[\d\+\-\*\/\(\)\s]+/) ? message.match(/[\d\+\-\*\/\(\)\s]+/)?.[0] : undefined,
+    intent: 'general',
+    expression: '',
     extractedNumbers: numbers,
-    extractedOperations: operations as any,
-    variables: message.match(/\b[a-z]\b/gi) || [],
-    confidence: 0.6,
-    suggestedAction: 'Process the request with fallback analysis'
+    extractedOperations: operations,
+    variables: extractVariables(message),
+    confidence: 0.5,
+    suggestedAction: 'General assistance (fallback analysis)'
   };
 }
 
@@ -453,7 +623,7 @@ async function handleIntelligentWorkflowCreation(message: string, orchestrationP
     console.warn('Intelligent workflow creation failed, falling back to manual method:', error);
 
     // FALLBACK: Use the original manual workflow creation method
-    const fallbackAnalysis = createFallbackAnalysis(message);
+    const fallbackAnalysis = await performFallbackIntentAnalysis(message);
     const manualResult = await handleCreateWorkflow(message, fallbackAnalysis);
 
     // Enhance the manual result with orchestration context
