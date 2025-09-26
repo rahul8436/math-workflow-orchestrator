@@ -174,39 +174,65 @@ Respond with your analysis and the appropriate action to take.`;
       intent = 'create_workflow';
       console.log('🛠️ Intent: CREATE_WORKFLOW detected');
       
-      // Extract expression for creation with multiple fallback patterns
+      // Use AI to extract mathematical expression reliably
       let expression = '';
       
-      // Pattern 1: Extract everything after "for"
-      let match = message.match(/\bfor\s+(.+)$/i);
-      console.log('🛠️ Pattern 1 (after "for"):', match);
+      console.log('🧠 Using AI to extract mathematical expression...');
       
-      if (!match) {
-        // Pattern 2: Extract mathematical expression pattern
-        match = message.match(/([0-9\+\-\*\/\(\)\s\.]+)/);
-        console.log('🛠️ Pattern 2 (math pattern):', match);
-      }
-      
-      if (!match) {
-        // Pattern 3: Try to capture everything after create/make/build workflow
-        match = message.match(/(?:create|make|build).*?workflow.*?([0-9\+\-\*\/\(\)\s\.]+)/i);
-        console.log('🛠️ Pattern 3 (workflow pattern):', match);
-      }
-      
-      if (match) {
-        expression = match[1].trim();
-        // Clean up the expression (remove extra words)
-        expression = expression.replace(/\b(?:please|now|today|workflow|for|me|that|can|do)\b/gi, '').trim();
-        // Remove multiple spaces
-        expression = expression.replace(/\s+/g, ' ');
-        console.log('🛠️ Cleaned expression:', expression);
-      } else {
-        console.log('❌ No expression match found in message:', message);
-        // Last resort: look for the AI's identified expression in the response
-        const aiMatch = text.match(/(?:Expression|expression):\*?\*?\s*([0-9\+\-\*\/\(\)\s\.]+)/i);
-        if (aiMatch) {
-          expression = aiMatch[1].trim();
-          console.log('🛠️ Expression from AI response:', expression);
+      try {
+        const { text: extractionResponse } = await generateText({
+          model: groq('llama-3.3-70b-versatile'),
+          prompt: `Extract the mathematical expression from this request: "${message}"
+          
+Rules:
+- Return ONLY the mathematical expression in standard notation
+- Convert words to symbols: "plus/add/with" → +, "minus/subtract" → -, "times/multiply" → *, "divide/divided by" → /
+- Use parentheses for grouping: "4 plus 6 divided by 5" → (4 + 6) / 5
+- Return "NONE" if no mathematical expression exists
+
+Examples:
+"Create workflow for 3 + 5" → 3 + 5
+"Build workflow adding 4 with 6 and divide by 5" → (4 + 6) / 5
+"Make workflow for 2 * 3 + 1" → 2 * 3 + 1
+"Hello there" → NONE
+
+Expression:`,
+          temperature: 0.1,
+        });
+
+        const extracted = extractionResponse.trim();
+        console.log('🧠 AI extracted:', extracted);
+        
+        if (extracted && extracted !== 'NONE' && extracted.match(/[0-9\+\-\*\/\(\)]/)) {
+          expression = extracted;
+          console.log('✅ Valid expression extracted:', expression);
+        } else {
+          console.log('❌ No valid expression found by AI');
+        }
+        
+      } catch (error) {
+        console.error('❌ AI extraction failed:', error);
+        
+        // Fallback to regex patterns
+        console.log('🔄 Falling back to regex patterns...');
+        
+        // Try to extract from the original AI response
+        const patterns = [
+          /(?:Expression|expression):\*?\*?\s*([^\n\r]+)/i,
+          /mathematical expression[^\n\r]*?([0-9\+\-\*\/\(\)\s]+)/i,
+          /([0-9\+\-\*\/\(\)\s]{3,})/
+        ];
+        
+        for (const pattern of patterns) {
+          const match = text.match(pattern);
+          if (match && match[1]) {
+            const candidate = match[1].trim();
+            if (candidate.match(/[0-9\+\-\*\/\(\)]/)) {
+              expression = candidate;
+              console.log('🔄 Fallback extracted:', expression);
+              break;
+            }
+          }
         }
       }
 
