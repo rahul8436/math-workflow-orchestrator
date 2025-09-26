@@ -10,6 +10,10 @@
     "lint:src": "eslint src/**/*.{ts,tsx}"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.19",
+    "@ai-sdk/groq": "^2.0.22",
+    "@ai-sdk/openai": "^2.0.36",
+    "ai": "^5.0.54",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "groq-sdk": "^0.32.0",
@@ -18,6 +22,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "reactflow": "^11.11.4",
+    "zod": "^4.1.11",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

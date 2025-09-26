@@ -97,6 +97,7 @@ export function Chatbot() {
       console.log('  - Raw numbers extracted:', input.match(/\b\d+(?:\.\d+)?\b/g));
       console.log('🔍 CHATBOT DEBUG: User message:', input.trim());
       
+      // Use new Vercel AI SDK endpoint
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -188,114 +189,6 @@ export function Chatbot() {
     const workflow = templates.find(t => t.id === workflowId);
     if (workflow) {
       loadTemplate(workflow);
-    }
-  };
-
-  const handleSuggestionClick = async (suggestionText: string) => {
-    if (isLoading) return; // Prevent multiple clicks during loading
-    
-    setInput(suggestionText);
-    
-    // Create user message
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      role: 'user',
-      content: suggestionText,
-      timestamp: new Date(),
-    };
-
-    addMessage(userMessage);
-    setLoading(true);
-
-    // Set orchestration steps
-    const steps = [
-      '🤖 Analyzing request with AI Orchestrator...',
-      '🔍 Performing deep analysis of mathematical concepts...',
-      '🎯 Determining intent and confidence level...',
-      '⚙️ Creating orchestration plan...',
-      '📊 Coordinating multiple AI tools...',
-      '🔄 Processing workflow actions...',
-      '✨ Generating intelligent response...'
-    ];
-    
-    setOrchestrationSteps(steps);
-    setCurrentStep(0);
-
-    // Simulate orchestration steps progression
-    const stepInterval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev < steps.length - 1) {
-          return prev + 1;
-        } else {
-          clearInterval(stepInterval);
-          return prev;
-        }
-      });
-    }, 800);
-
-    try {
-      const currentTemplates = useWorkflowStore.getState().templates;
-      
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: suggestionText,
-          templates: currentTemplates,
-          context: {
-            currentWorkflow: useWorkflowStore.getState().activeWorkflow,
-            recentMessages: messages.slice(-5),
-            userHistory: messages.filter(m => m.role === 'user').map(m => m.content).slice(-10),
-          },
-        }),
-      });
-
-      clearInterval(stepInterval);
-
-      if (!response.ok) {
-        throw new Error('Failed to get response from AI');
-      }
-
-      const data = await response.json();
-      
-      const assistantMessage: ChatMessage = {
-        id: `msg-${Date.now()}-ai`,
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date(),
-        orchestration: data.orchestration,
-        workflowSuggestions: data.suggestions,
-        createdWorkflow: data.createdWorkflow?.id || null,
-        createdWorkflowName: data.createdWorkflow?.name || null,
-        fallbackAnalysis: data.analysis
-      };
-
-      addMessage(assistantMessage);
-
-      // Handle workflow creation or loading
-      if (data.createdWorkflow) {
-        addTemplate(data.createdWorkflow);
-        loadTemplate(data.createdWorkflow);
-      }
-
-      if (data.foundWorkflow) {
-        loadTemplate(data.foundWorkflow);
-      }
-
-    } catch (error) {
-      clearInterval(stepInterval);
-      console.error('Error sending message:', error);
-      
-      const errorMessage: ChatMessage = {
-        id: `msg-${Date.now()}-error`,
-        role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
-        timestamp: new Date(),
-      };
-      addMessage(errorMessage);
-    } finally {
-      setLoading(false);
-      setInput('');
     }
   };
 
