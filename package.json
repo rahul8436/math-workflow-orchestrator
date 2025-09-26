@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:src": "eslint src/**/*.{ts,tsx}"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

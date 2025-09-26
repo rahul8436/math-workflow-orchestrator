@@ -40,7 +40,7 @@ Try clicking any of the suggestions below to see me in action!`,
           "Create workflow for 10 + 15",
           "Find workflow for 3 + 5", 
           "Create workflow for (25 + 35) / 6",
-          "Calculate 45 × 2"
+          "Calculate 45 * 2"
         ]
       };
       
