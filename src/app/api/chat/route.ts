@@ -117,7 +117,6 @@ export async function POST(req: NextRequest) {
     let createdWorkflow: WorkflowTemplate | null = null;
     let foundWorkflow: WorkflowTemplate | null = null; // Add this for auto-loading workflows
     let suggestions: any[] = [];
-    let personalizedSuggestions: string[] = [];
 
     try {
       // PRIMARY: Try AI Orchestrator for intelligent processing
@@ -177,9 +176,6 @@ export async function POST(req: NextRequest) {
       // Generate intelligent response
       response = await generateIntelligentResponse(message, orchestrationPlan, suggestions, createdWorkflow, foundWorkflow);
 
-      // Get personalized suggestions
-      personalizedSuggestions = await aiOrchestrator.getPersonalizedSuggestions();
-
     } catch (orchestrationError) {
       console.warn('AI Orchestration failed, falling back to manual analysis:', orchestrationError);
 
@@ -219,7 +215,6 @@ export async function POST(req: NextRequest) {
       suggestions,
       createdWorkflow: createdWorkflow, // Send the full object for adding to templates
       foundWorkflow: foundWorkflow, // Send found workflow for auto-loading
-      personalizedSuggestions,
       timestamp: new Date().toISOString()
     });
 
@@ -512,8 +507,8 @@ function handleGeneral(message: string, suggestions: any[]): string {
   }
 
   return "I'm your intelligent workflow orchestrator! I can help you:\n\n" +
-    "🔍 **Find workflows**: 'What workflow do I need for addition?'\n" +
-    "🏗️ **Create workflows**: 'Build a workflow for 3 + 5 * 2'\n" +
+    "🔍 **Find workflows**: 'Find the workflow which is adding 4 with 7?'\n" +
+    "🏗️ **Create workflows**: 'Create a workflow for 3 + 5 * 2'\n" +
     "▶️ **Execute calculations**: 'Calculate 10 + 15 - 8'\n" +
     "❓ **Explain concepts**: 'How does the workflow system work?'\n\n" +
     "Just describe what you want to calculate or ask me any question!";

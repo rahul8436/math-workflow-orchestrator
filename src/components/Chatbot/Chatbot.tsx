@@ -35,7 +35,7 @@ export function Chatbot() {
       const welcomeMessage: ChatMessage = {
         id: 'welcome',
         role: 'assistant',
-        content: "👋 Hi! I'm your intelligent workflow orchestrator. I can help you:\n\n🔍 **Find workflows**: \"What workflow do I need for addition?\"\n🏗️ **Create workflows**: \"Build a workflow for 3 + 5 * 2\"\n▶️ **Execute calculations**: \"Calculate 10 + 15 - 8\"\n❓ **Explain concepts**: \"How does the workflow system work?\"\n\nWhat would you like to do?",
+        content: "👋 Hi! I'm your intelligent workflow orchestrator. I can help you:\n\n🔍 **Find workflows**: \"Find the workflow which is adding 4 with 7?\"\n🏗️ **Create workflows**: \"Create a workflow for 3 + 5 * 2\"\n▶️ **Execute calculations**: \"Calculate 10 + 15 - 8\"\n❓ **Explain concepts**: \"How does the workflow system work?\"\n\nWhat would you like to do?",
         timestamp: new Date(),
       };
       addMessage(welcomeMessage);
@@ -129,7 +129,6 @@ export function Chatbot() {
         createdWorkflow: data.createdWorkflow?.id || null, // Store only the ID for the message
         createdWorkflowName: data.createdWorkflow?.name || null, // Store name for display
         orchestration: data.orchestration,
-        personalizedSuggestions: data.personalizedSuggestions,
         fallbackAnalysis: data.analysis, // Include fallback analysis data
       };
 
@@ -266,7 +265,6 @@ export function Chatbot() {
         timestamp: new Date(),
         orchestration: data.orchestration,
         workflowSuggestions: data.suggestions,
-        personalizedSuggestions: data.personalizedSuggestions,
         createdWorkflow: data.createdWorkflow?.id || null,
         createdWorkflowName: data.createdWorkflow?.name || null,
         fallbackAnalysis: data.analysis
@@ -427,43 +425,6 @@ export function Chatbot() {
                       </div>
                     </button>
                   ))}
-                </div>
-              )}
-
-              {/* Personalized Learning Suggestions - Clickable */}
-              {message.personalizedSuggestions && message.personalizedSuggestions.length > 0 && (
-                <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-teal-50 border border-green-200 rounded-lg">
-                  <div className="text-sm font-semibold text-green-800 mb-2">
-                    � Quick Actions - Click to Try:
-                  </div>
-                  <div className="space-y-2">
-                    {message.personalizedSuggestions.slice(0, 4).map((suggestion, index) => {
-                      // Ensure suggestion is a string, handle both object and string formats
-                      const suggestionText = typeof suggestion === 'string' 
-                        ? suggestion 
-                        : (suggestion as any)?.suggestion || (suggestion as any)?.title || String(suggestion);
-                      
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => handleSuggestionClick(suggestionText)}
-                          className="w-full text-left p-2 bg-white border border-green-300 rounded-md hover:bg-green-50 hover:border-green-400 transition-colors duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={isLoading}
-                        >
-                          <div className="text-sm text-green-700 flex items-center gap-2">
-                            <span className="text-green-500 font-bold text-xs">{index + 1}.</span>
-                            <span className="flex-1">{suggestionText}</span>
-                            <span className="text-green-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                              →
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="text-xs text-green-600 mt-2 opacity-75">
-                    Click any suggestion to try it instantly!
-                  </div>
                 </div>
               )}
 

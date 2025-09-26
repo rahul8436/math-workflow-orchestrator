@@ -358,25 +358,6 @@ Respond with JSON:
     this.context = { ...this.context, ...updates };
   }
 
-  // Get intelligent suggestions based on user's workflow history
-  async getPersonalizedSuggestions(): Promise<string[]> {
-    // Return demo-ready, clickable suggestions that work 100%
-    const demoReadySuggestions = [
-      "Create workflow for 10 + 15",
-      "Find workflow for 3 + 5", 
-      "Create workflow for (20 + 30) / 5",
-      "Find workflow for 6 * 4",
-      "Create workflow for 100 - 25",
-      "Find workflow for 30 ÷ 6",
-      "Calculate 45 + 55",
-      "Find workflow for 25 + 35",
-      "Create workflow for 12 * 5"
-    ];
-
-    // Randomize and return 3-4 suggestions for variety
-    const shuffled = demoReadySuggestions.sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, Math.floor(Math.random() * 2) + 3); // 3-4 suggestions
-  }
 }
 
 export const aiOrchestrator = new AIOrchestrator(process.env.GROQ_API_KEY || '');

@@ -101,7 +101,6 @@ export interface ChatMessage {
   createdWorkflow?: string; // workflow ID if created
   createdWorkflowName?: string; // workflow name for display
   orchestration?: OrchestrationPlan;
-  personalizedSuggestions?: string[];
   fallbackAnalysis?: AIAnalysis; // Manual analysis when AI orchestration fails
 }
 
@@ -121,6 +120,7 @@ export interface AIAnalysis {
   variables: string[];
   confidence: number;
   suggestedAction: string;
+  reasoning?: string;
 }
 
 export interface OrchestrationPlan {
