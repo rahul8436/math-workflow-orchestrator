@@ -1,26 +1,218 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+* {
+  box-sizing: border-box;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: #f9fafb !important;
+  color: #111827 !important;
+}
+
+/* Force proper text colors everywhere */
+*, *::before, *::after {
+  color: inherit;
+}
+
+/* Ensure proper text colors for all text elements */
+p, span, div, h1, h2, h3, h4, h5, h6, label, li, td, th {
+  color: #111827 !important;
+}
+
+/* Only buttons and elements that should be white text */
+button.bg-blue-600, button.bg-green-600, button.bg-red-600, button.bg-orange-600,
+.bg-blue-600, .bg-green-600, .bg-red-600, .bg-orange-600,
+.text-white {
+  color: white !important;
+}
+
+/* Specific gray text classes */
+.text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.text-gray-700 {
+  color: #374151 !important;
+}
+
+.text-gray-900 {
+  color: #111827 !important;
+}
+
+/* Colored text should remain colored */
+.text-blue-600, .text-blue-700, .text-blue-800 {
+  color: #2563eb !important;
+}
+
+.text-green-600, .text-green-700, .text-green-800 {
+  color: #16a34a !important;
+}
+
+.text-red-600, .text-red-700, .text-red-800 {
+  color: #dc2626 !important;
+}
+
+/* Form elements */
+input, textarea, select, button {
+  color: #111827 !important;
+  font-family: inherit;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #6b7280 !important;
+  opacity: 1;
+}
+
+/* Specific fixes for workflow components */
+.react-flow__node {
+  color: #111827 !important;
+}
+
+.react-flow__node input {
+  color: #111827 !important;
+}
+
+.react-flow__node .text-white {
+  color: white !important;
+}
+
+/* Template list and workflow components */
+.workflow-template-item * {
+  color: #111827 !important;
+}
+
+.workflow-controls * {
+  color: #111827 !important;
+}
+
+.chat-component * {
+  color: #111827 !important;
+}
+
+/* Force visibility for specific component classes */
+[class*="text-"] {
+  color: inherit !important;
+}
+
+/* Override any potential CSS variable issues */
+:root {
+  --tw-text-opacity: 1;
+}
+
+/* Ensure all child elements inherit proper colors */
+.workflow-builder * {
+  color: inherit;
+}
+
+.workflow-builder input,
+.workflow-builder textarea,
+.workflow-builder select {
+  color: #111827 !important;
+}
+
+/* Fix for any hidden text in templates */
+.template-list * {
+  color: #111827 !important;
+}
+
+/* Ensure chat input is visible */
+.chat-input input,
+.chat-input textarea {
+  color: #111827 !important;
+  background-color: white !important;
+}
+
+/* ReactFlow custom styles */
+.react-flow__node {
+  font-family: inherit;
+}
+
+.react-flow__edge {
+  stroke: #6b7280;
+}
+
+/* Custom scrollbar for better UI */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Animation improvements */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Emergency fix - ensure all text is visible */
+body * {
+  color: #111827 !important;
+}
+
+/* White text exceptions - only where needed */
+button.bg-blue-600 *,
+button.bg-green-600 *,
+button.bg-red-600 *,
+button.bg-orange-600 *,
+.bg-blue-600 *:not(input):not(textarea),
+.bg-green-600 *:not(input):not(textarea),
+.bg-red-600 *:not(input):not(textarea),
+.bg-orange-600 *:not(input):not(textarea),
+.text-white,
+.text-white * {
+  color: white !important;
+}
+
+/* Specific color overrides */
+.text-gray-500, .text-gray-500 * {
+  color: #6b7280 !important;
+}
+
+.text-gray-600, .text-gray-600 * {
+  color: #4b5563 !important;
+}
+
+.text-gray-700, .text-gray-700 * {
+  color: #374151 !important;
+}
+
+.text-gray-900, .text-gray-900 * {
+  color: #111827 !important;
+}
+
+.text-blue-600, .text-blue-600 * {
+  color: #2563eb !important;
+}
+
+.text-green-600, .text-green-600 * {
+  color: #16a34a !important;
+}
+
+.text-red-600, .text-red-600 * {
+  color: #dc2626 !important;
 }
