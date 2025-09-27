@@ -71,6 +71,15 @@ export async function POST(request: NextRequest) {
     const { message, templates = [], context } = body;
 
     console.log('🤖 Vercel AI SDK Processing:', message);
+    console.log('🔍 API DEBUG: Received templates count:', templates.length);
+    console.log('🔍 API DEBUG: AI-generated templates:', 
+      templates.filter((t: WorkflowTemplate) => t.tags.includes('ai-generated')).map((t: WorkflowTemplate) => ({
+        id: t.id,
+        name: t.name,
+        pattern: t.pattern,
+        exactExpression: t.exactExpression
+      }))
+    );
 
     // System prompt for the AI
     const systemPrompt = `You are an intelligent mathematical workflow orchestrator. Your role is to understand user requests and determine the appropriate actions.
@@ -81,13 +90,23 @@ AVAILABLE ACTIONS:
 3. EVALUATE - When user wants to calculate/evaluate expressions
 4. EXPLAIN - When user wants explanations
 
-INTENT CLASSIFICATION RULES:
-- "Create workflow for X" or "Make workflow for X" → CREATE_WORKFLOW
-- "Find workflow for X" or "Get workflow for X" → FIND_WORKFLOW  
-- "Calculate X" or "What is X" → EVALUATE
-- "Explain X" or "How does X work" → EXPLAIN
+INTENT CLASSIFICATION RULES (STRICT PRIORITY ORDER):
 
-For each request, determine the intent and extract the mathematical expression if present.
+HIGHEST PRIORITY - FIND_WORKFLOW:
+- ANY message containing "find", "search", "get", "show", "which", "locate" → FIND_WORKFLOW
+- Examples: "find 4+6", "find a workflow for X", "search 2*3", "get workflow", "which workflow" → ALL are FIND_WORKFLOW
+- "find a workflow for adding 4 with 6 with 8 with 9 and divide them by 10 and multiply with 7" → FIND_WORKFLOW
+
+SECOND PRIORITY - CREATE_WORKFLOW:
+- Messages with "create", "make", "build", "generate" + expression → CREATE_WORKFLOW
+
+THIRD PRIORITY - EVALUATE: 
+- Messages with "calculate", "compute", "evaluate", "what is", "solve" WITHOUT find/search keywords → EVALUATE
+
+FOURTH PRIORITY - EXPLAIN:
+- Messages with "explain", "how", "why", "describe" → EXPLAIN
+
+CRITICAL: Always prioritize FIND_WORKFLOW when find/search keywords are present, regardless of mathematical complexity.
 
 Current templates available: ${templates.length} workflows
 
@@ -113,63 +132,15 @@ Respond with your analysis and the appropriate action to take.`;
     const lowerMessage = message.toLowerCase();
     const lowerResponse = text.toLowerCase();
 
-    // Enhanced intent detection with better pattern matching
-    if (lowerResponse.includes('find_workflow') || 
-        lowerMessage.includes('find workflow') || 
-        lowerMessage.includes('get workflow') ||
-        lowerMessage.includes('which workflow') ||
-        lowerMessage.includes('show workflow')) {
-      
-      intent = 'find_workflow';
-      console.log('🔍 Intent: FIND_WORKFLOW detected');
-      
-      // Extract mathematical expression using multiple patterns
-      let expression = '';
-      
-      // Pattern 1: "find workflow for X"
-      let match = message.match(/(?:find|get|show|which)\s+workflow\s+(?:for\s+|that\s+)?(.+)/i);
-      if (!match) {
-        // Pattern 2: "which workflow adds X with Y"
-        match = message.match(/which\s+workflow\s+(?:adds|multiplies|subtracts|divides)\s+(.+)/i);
-      }
-      if (!match) {
-        // Pattern 3: Extract numbers and operators from the message
-        const numbers = message.match(/\b\d+(?:\.\d+)?\b/g);
-        const hasPlus = message.includes('+') || message.includes('add') || message.includes('plus');
-        if (numbers && numbers.length >= 2 && hasPlus) {
-          expression = numbers.join(' + ');
-        }
-      } else {
-        expression = match[1].trim();
-      }
-
-      if (expression) {
-        console.log('🔍 Searching for expression:', expression);
-        
-        const results = findMatchingWorkflows(expression, templates);
-        console.log('🔍 Found results:', results.length);
-        
-        suggestions = results.map(suggestion => ({
-          workflowId: suggestion.workflowId,
-          name: suggestion.name,
-          confidence: suggestion.confidence,
-          reasoning: suggestion.reason,
-        }));
-
-        // If we found a high-confidence match, set it as found for auto-loading
-        if (results.length > 0 && results[0].confidence > 0.7) {
-          const bestMatch = templates.find(t => t.id === results[0].workflowId);
-          if (bestMatch) {
-            foundWorkflow = bestMatch;
-            console.log('✅ Auto-loading best match:', bestMatch.name);
-          }
-        }
-      }
-    } 
-    else if (lowerResponse.includes('create_workflow') || 
-             lowerMessage.includes('create workflow') || 
-             lowerMessage.includes('make workflow') ||
-             lowerMessage.includes('build workflow')) {
+    // Enhanced intent detection with CREATE priority (check CREATE first!)
+    if (lowerResponse.includes('create_workflow') || 
+        lowerMessage.includes('create workflow') || 
+        lowerMessage.includes('make workflow') ||
+        lowerMessage.includes('build workflow') ||
+        lowerMessage.startsWith('create ') ||
+        lowerMessage.startsWith('make ') ||
+        lowerMessage.startsWith('build ') ||
+        lowerMessage.startsWith('generate ')) {
       
       intent = 'create_workflow';
       console.log('🛠️ Intent: CREATE_WORKFLOW detected');
@@ -182,32 +153,41 @@ Respond with your analysis and the appropriate action to take.`;
       try {
         const { text: extractionResponse } = await generateText({
           model: groq('llama-3.3-70b-versatile'),
-          prompt: `Extract the mathematical expression from this request: "${message}"
-          
-Rules:
-- Return ONLY the mathematical expression in standard notation
-- Convert words to symbols: "plus/add/with" → +, "minus/subtract" → -, "times/multiply" → *, "divide/divided by" → /
-- Use parentheses for grouping: "4 plus 6 divided by 5" → (4 + 6) / 5
-- Return "NONE" if no mathematical expression exists
+          prompt: `Extract ONLY the mathematical expression from: "${message}"
 
-Examples:
-"Create workflow for 3 + 5" → 3 + 5
-"Build workflow adding 4 with 6 and divide by 5" → (4 + 6) / 5
-"Make workflow for 2 * 3 + 1" → 2 * 3 + 1
-"Hello there" → NONE
+RULES:
+- Return ONLY the math expression, nothing else
+- No explanations, no steps, no extra text
+- Convert words: add/with→+, subtract→-, multiply→*, divide→/
+- Use parentheses for grouping when needed
 
-Expression:`,
+EXAMPLES:
+"create 3 + 5" → 3 + 5
+"create 4 with 6 divide by 5" → (4 + 6) / 5  
+"create 50 * 80 / 40" → 50 * 80 / 40
+"create 50 * 80 / 40 - 30 + 90" → 50 * 80 / 40 - 30 + 90
+"hello" → NONE
+
+EXPRESSION:`,
           temperature: 0.1,
         });
 
         const extracted = extractionResponse.trim();
         console.log('🧠 AI extracted:', extracted);
         
-        if (extracted && extracted !== 'NONE' && extracted.match(/[0-9\+\-\*\/\(\)]/)) {
+        // Validate that it's a clean mathematical expression (no explanations)
+        const isCleanExpression = extracted && 
+                                 extracted !== 'NONE' && 
+                                 extracted.match(/^[0-9\+\-\*\/\(\)\s]+$/) && // Only math symbols
+                                 !extracted.includes('Step') && // No step-by-step
+                                 !extracted.includes('\n') && // No multi-line
+                                 extracted.length < 100; // Reasonable length
+        
+        if (isCleanExpression) {
           expression = extracted;
           console.log('✅ Valid expression extracted:', expression);
         } else {
-          console.log('❌ No valid expression found by AI');
+          console.log('❌ Invalid/verbose expression rejected:', extracted.substring(0, 100) + '...');
         }
         
       } catch (error) {
@@ -257,6 +237,112 @@ Expression:`,
         console.log('❌ No expression extracted from message:', message);
       }
     }
+    // FIND_WORKFLOW - Check after CREATE to avoid conflicts
+    else if (lowerResponse.includes('find_workflow') || 
+        lowerMessage.includes('find workflow') || 
+        lowerMessage.includes('get workflow') ||
+        lowerMessage.includes('which workflow') ||
+        lowerMessage.includes('show workflow') ||
+        lowerMessage.startsWith('find ') ||
+        lowerMessage.startsWith('search ') ||
+        lowerMessage.startsWith('get ') ||
+        lowerMessage.startsWith('show ') ||
+        lowerMessage.startsWith('which ') ||
+        lowerMessage.startsWith('locate ')) {
+      
+      intent = 'find_workflow';
+      console.log('🔍 Intent: FIND_WORKFLOW detected');
+      
+      // Use AI to extract mathematical expression reliably for FIND operations
+      let expression = '';
+      
+      console.log('🧠 Using AI to extract mathematical expression for FIND...');
+      
+      try {
+        const { text: extractionResponse } = await generateText({
+          model: groq('llama-3.3-70b-versatile'),
+          prompt: `Extract ONLY the mathematical expression from: "${message}"
+
+RULES:
+- Return ONLY the math expression, nothing else
+- No explanations, no steps, no extra text
+- Convert words: add/with→+, subtract→-, multiply→*, divide→/
+- Use parentheses for grouping when needed
+
+EXAMPLES:
+"find 4+6" → 4+6
+"find 3 + 5" → 3 + 5
+"find 4 with 6 divide by 5" → (4 + 6) / 5
+"find 4 with 6 with 8 with 9 divide by 10 multiply 7" → ((4 + 6 + 8 + 9) / 10) * 7
+"find 50 * 80 / 40" → 50 * 80 / 40
+"get workflow" → NONE
+
+EXPRESSION:`,
+          temperature: 0.1,
+        });
+
+        const extracted = extractionResponse.trim();
+        console.log('🧠 AI extracted for FIND:', extracted);
+        
+        // Validate that it's a clean mathematical expression (no explanations)
+        const isCleanExpression = extracted && 
+                                 extracted !== 'NONE' && 
+                                 extracted.match(/^[0-9\+\-\*\/\(\)\s]+$/) && // Only math symbols
+                                 !extracted.includes('Step') && // No step-by-step
+                                 !extracted.includes('\n') && // No multi-line
+                                 extracted.length < 100; // Reasonable length
+        
+        if (isCleanExpression) {
+          expression = extracted;
+          console.log('✅ Valid expression extracted for FIND:', expression);
+        } else {
+          console.log('❌ Invalid/verbose expression rejected for FIND:', extracted.substring(0, 100) + '...');
+        }
+        
+      } catch (error) {
+        console.error('❌ AI extraction failed for FIND:', error);
+        
+        // Fallback to regex patterns only if AI fails
+        console.log('🔄 Falling back to regex patterns for FIND...');
+        const patterns = [
+          /(?:find|get|show|which)\s+workflow\s+(?:for\s+)?(.+)/i,
+          /(?:find|search|get|show|which)\s+(.+)/i
+        ];
+        
+        for (const pattern of patterns) {
+          const match = message.match(pattern);
+          if (match && match[1]) {
+            const candidate = match[1].trim();
+            console.log('🔄 Fallback candidate for FIND:', candidate);
+            expression = candidate;
+            break;
+          }
+        }
+      }
+
+      if (expression) {
+        console.log('🔍 Searching for expression:', expression);
+        
+        const results = findMatchingWorkflows(expression, templates);
+        console.log('🔍 Found results:', results.length);
+        
+        suggestions = results.map(suggestion => ({
+          workflowId: suggestion.workflowId,
+          name: suggestion.name,
+          confidence: suggestion.confidence,
+          reasoning: suggestion.reason,
+        }));
+
+        // If we found a high-confidence match, set it as found for auto-loading
+        if (results.length > 0 && results[0].confidence > 0.7) {
+          const bestMatch = templates.find(t => t.id === results[0].workflowId);
+          if (bestMatch) {
+            foundWorkflow = bestMatch;
+            console.log('✅ Auto-loading best match:', bestMatch.name);
+          }
+        }
+      }
+    } 
     else if (lowerMessage.includes('calculate') || lowerMessage.includes('what is')) {
       intent = 'execute_workflow';
       

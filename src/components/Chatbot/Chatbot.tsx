@@ -86,16 +86,25 @@ export function Chatbot() {
       // Get fresh templates from store to avoid stale closure issues
       const currentTemplates = useWorkflowStore.getState().templates;
       
-      // Debug: Log current templates being sent to API
+      // Enhanced debugging for template tracking
       console.log('🔍 CHATBOT DEBUG: Templates being sent to API:', currentTemplates.length);
-      console.log('🔍 CHATBOT DEBUG: User-created workflows:', currentTemplates.filter(t => t.tags.includes('user-created')).length);
-      console.log('🔍 CHATBOT DEBUG: Message intent keywords check:');
-      console.log('  - Contains "create workflow":', input.toLowerCase().includes('create workflow'));
-      console.log('  - Contains "create a workflow":', input.toLowerCase().includes('create a workflow'));
-      console.log('  - Contains "get me the workflow":', input.toLowerCase().includes('get me the workflow'));
-      console.log('  - Contains "from templates":', input.toLowerCase().includes('from templates'));
-      console.log('  - Raw numbers extracted:', input.match(/\b\d+(?:\.\d+)?\b/g));
+      console.log('🔍 CHATBOT DEBUG: AI-created workflows in templates:', 
+        currentTemplates.filter(t => t.tags.includes('ai-generated')).map(t => ({
+          id: t.id,
+          name: t.name,
+          pattern: t.pattern,
+          exactExpression: t.exactExpression
+        }))
+      );
+      
+      console.log('🔍 CHATBOT DEBUG: Template IDs:', currentTemplates.map(t => t.id));
       console.log('🔍 CHATBOT DEBUG: User message:', input.trim());
+      console.log('🔍 CHATBOT DEBUG: Looking for patterns in message:');
+      console.log('  - Contains "find":', input.toLowerCase().includes('find'));
+      console.log('  - Contains "search":', input.toLowerCase().includes('search'));
+      console.log('  - Contains "get":', input.toLowerCase().includes('get'));
+      console.log('  - Numbers in message:', input.match(/\b\d+(?:\.\d+)?\b/g));
+      console.log('  - Math operators:', input.match(/[\+\-\*\/\(\)]/g));
       
       // Use new Vercel AI SDK endpoint
       const response = await fetch('/api/chat', {
