@@ -430,10 +430,10 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
     usageCount: 0
   },
   {
-    id: 'basic-addition',
-    name: 'Simple Addition',
-    description: 'Add two numbers together',
-    pattern: 'x + y',
+    id: 'exact-15-plus-23',
+    name: 'Addition: 15 + 23',
+    description: 'Calculate 15 + 23 = 38',
+    pattern: '15 + 23',
     complexity: 'basic',
     operations: ['addition'],
     operandCount: 2,
@@ -442,7 +442,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 100, y: 100 },
-        data: { value: 0, label: 'First Number' }
+        data: { value: 15, label: '15' }
       },
       {
         id: 'operator-1',
@@ -454,13 +454,13 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-2',
         type: 'operand',
         position: { x: 100, y: 200 },
-        data: { value: 0, label: 'Second Number' }
+        data: { value: 23, label: '23' }
       },
       {
         id: 'result-1',
         type: 'result',
         position: { x: 500, y: 150 },
-        data: { label: 'Result' }
+        data: { label: 'Result (38)' }
       }
     ],
     edges: [
@@ -468,16 +468,18 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e2', source: 'operand-2', target: 'operator-1' },
       { id: 'e3', source: 'operator-1', target: 'result-1' }
     ],
-    tags: ['addition', 'basic', 'two-operand', 'arithmetic'],
-    examples: ['3 + 5', '10 + 20', 'x + y'],
+    tags: ['addition', 'exact', 'fifteen', 'twenty-three', 'thirty-eight'],
+    examples: ['15 + 23', '15+23'],
+    exactValues: [15, 23],
+    exactExpression: '15+23',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   },
   {
-    id: 'basic-subtraction',
-    name: 'Simple Subtraction',
-    description: 'Subtract one number from another',
-    pattern: 'x - y',
+    id: 'exact-50-minus-18',
+    name: 'Subtraction: 50 - 18',
+    description: 'Calculate 50 - 18 = 32',
+    pattern: '50 - 18',
     complexity: 'basic',
     operations: ['subtraction'],
     operandCount: 2,
@@ -486,7 +488,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 100, y: 100 },
-        data: { value: 0, label: 'First Number' }
+        data: { value: 50, label: '50' }
       },
       {
         id: 'operator-1',
@@ -498,13 +500,13 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-2',
         type: 'operand',
         position: { x: 100, y: 200 },
-        data: { value: 0, label: 'Second Number' }
+        data: { value: 18, label: '18' }
       },
       {
         id: 'result-1',
         type: 'result',
         position: { x: 500, y: 150 },
-        data: { label: 'Result' }
+        data: { label: 'Result (32)' }
       }
     ],
     edges: [
@@ -512,16 +514,18 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e2', source: 'operand-2', target: 'operator-1' },
       { id: 'e3', source: 'operator-1', target: 'result-1' }
     ],
-    tags: ['subtraction', 'basic', 'two-operand', 'arithmetic'],
-    examples: ['5 - 3', '20 - 10', 'x - y'],
+    tags: ['subtraction', 'exact', 'fifty', 'eighteen', 'thirty-two'],
+    examples: ['50 - 18', '50-18'],
+    exactValues: [50, 18],
+    exactExpression: '50-18',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   },
   {
-    id: 'basic-multiplication',
-    name: 'Simple Multiplication',
-    description: 'Multiply two numbers',
-    pattern: 'x * y',
+    id: 'exact-9-times-7',
+    name: 'Multiplication: 9 × 7',
+    description: 'Calculate 9 × 7 = 63',
+    pattern: '9 * 7',
     complexity: 'basic',
     operations: ['multiplication'],
     operandCount: 2,
@@ -530,7 +534,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 100, y: 100 },
-        data: { value: 0, label: 'First Number' }
+        data: { value: 9, label: '9' }
       },
       {
         id: 'operator-1',
@@ -542,13 +546,13 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-2',
         type: 'operand',
         position: { x: 100, y: 200 },
-        data: { value: 0, label: 'Second Number' }
+        data: { value: 7, label: '7' }
       },
       {
         id: 'result-1',
         type: 'result',
         position: { x: 500, y: 150 },
-        data: { label: 'Result' }
+        data: { label: 'Result (63)' }
       }
     ],
     edges: [
@@ -556,16 +560,18 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e2', source: 'operand-2', target: 'operator-1' },
       { id: 'e3', source: 'operator-1', target: 'result-1' }
     ],
-    tags: ['multiplication', 'basic', 'two-operand', 'arithmetic'],
-    examples: ['3 * 5', '10 * 20', 'x * y'],
+    tags: ['multiplication', 'exact', 'nine', 'seven', 'sixty-three'],
+    examples: ['9 * 7', '9×7', '9 times 7'],
+    exactValues: [9, 7],
+    exactExpression: '9*7',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   },
   {
-    id: 'chain-add-subtract',
-    name: 'Chain Addition and Subtraction',
-    description: 'Add two numbers then subtract a third',
-    pattern: 'x + y - z',
+    id: 'exact-100-plus-45-minus-28',
+    name: 'Chain: 100 + 45 - 28',
+    description: 'Calculate 100 + 45 - 28 = 117',
+    pattern: '100 + 45 - 28',
     complexity: 'intermediate',
     operations: ['addition', 'subtraction'],
     operandCount: 3,
@@ -574,13 +580,13 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 100, y: 100 },
-        data: { value: 0, label: 'X' }
+        data: { value: 100, label: '100' }
       },
       {
         id: 'operand-2',
         type: 'operand',
         position: { x: 100, y: 200 },
-        data: { value: 0, label: 'Y' }
+        data: { value: 45, label: '45' }
       },
       {
         id: 'operator-1',
@@ -592,7 +598,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-3',
         type: 'operand',
         position: { x: 100, y: 300 },
-        data: { value: 0, label: 'Z' }
+        data: { value: 28, label: '28' }
       },
       {
         id: 'operator-2',
@@ -604,7 +610,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'result-1',
         type: 'result',
         position: { x: 700, y: 225 },
-        data: { label: 'Result' }
+        data: { label: 'Result (117)' }
       }
     ],
     edges: [
@@ -614,16 +620,18 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e4', source: 'operand-3', target: 'operator-2' },
       { id: 'e5', source: 'operator-2', target: 'result-1' }
     ],
-    tags: ['addition', 'subtraction', 'chain', 'three-operand', 'sequential'],
-    examples: ['3 + 5 - 2', '10 + 15 - 8', 'x + y - z'],
+    tags: ['addition', 'subtraction', 'chain', 'exact', 'sequential'],
+    examples: ['100 + 45 - 28', '100+45-28'],
+    exactValues: [100, 45, 28],
+    exactExpression: '100+45-28',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   },
   {
-    id: 'complex-bodmas',
-    name: 'BODMAS Expression',
-    description: 'Complex expression with order of operations',
-    pattern: 'x + y * z',
+    id: 'exact-5-plus-12-times-3',
+    name: 'BODMAS: 5 + 12 × 3',
+    description: 'Calculate 5 + 12 × 3 = 41 (order of operations)',
+    pattern: '5 + 12 * 3',
     complexity: 'advanced',
     operations: ['addition', 'multiplication'],
     operandCount: 3,
@@ -632,19 +640,19 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 100, y: 100 },
-        data: { value: 0, label: 'X' }
+        data: { value: 5, label: '5' }
       },
       {
         id: 'operand-2',
         type: 'operand',
         position: { x: 100, y: 250 },
-        data: { value: 0, label: 'Y' }
+        data: { value: 12, label: '12' }
       },
       {
         id: 'operand-3',
         type: 'operand',
         position: { x: 100, y: 350 },
-        data: { value: 0, label: 'Z' }
+        data: { value: 3, label: '3' }
       },
       {
         id: 'operator-1',
@@ -662,7 +670,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'result-1',
         type: 'result',
         position: { x: 700, y: 200 },
-        data: { label: 'Result' }
+        data: { label: 'Result (41)' }
       }
     ],
     edges: [
@@ -672,16 +680,18 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e4', source: 'operator-1', target: 'operator-2' },
       { id: 'e5', source: 'operator-2', target: 'result-1' }
     ],
-    tags: ['bodmas', 'precedence', 'multiplication', 'addition', 'complex'],
-    examples: ['2 + 3 * 4', '5 + 10 * 2', 'x + y * z'],
+    tags: ['bodmas', 'precedence', 'multiplication', 'addition', 'exact'],
+    examples: ['5 + 12 * 3', '5+12×3'],
+    exactValues: [5, 12, 3],
+    exactExpression: '5+12*3',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   },
   {
-    id: 'four-operation-chain',
-    name: 'Four Operation Chain',
-    description: 'Chain of four basic operations',
-    pattern: 'x + y - z / u',
+    id: 'exact-20-plus-15-minus-24-div-4',
+    name: 'Complex: 20 + 15 - 24 ÷ 4',
+    description: 'Calculate 20 + 15 - 24 ÷ 4 = 29 (order of operations)',
+    pattern: '20 + 15 - 24 / 4',
     complexity: 'complex',
     operations: ['addition', 'subtraction', 'division'],
     operandCount: 4,
@@ -690,25 +700,25 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 50, y: 100 },
-        data: { value: 0, label: 'X' }
+        data: { value: 20, label: '20' }
       },
       {
         id: 'operand-2',
         type: 'operand',
         position: { x: 50, y: 200 },
-        data: { value: 0, label: 'Y' }
+        data: { value: 15, label: '15' }
       },
       {
         id: 'operand-3',
         type: 'operand',
         position: { x: 50, y: 350 },
-        data: { value: 0, label: 'Z' }
+        data: { value: 24, label: '24' }
       },
       {
         id: 'operand-4',
         type: 'operand',
         position: { x: 50, y: 450 },
-        data: { value: 0, label: 'U' }
+        data: { value: 4, label: '4' }
       },
       {
         id: 'operator-1',
@@ -732,7 +742,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'result-1',
         type: 'result',
         position: { x: 650, y: 275 },
-        data: { label: 'Result' }
+        data: { label: 'Result (29)' }
       }
     ],
     edges: [
@@ -744,16 +754,18 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e6', source: 'operator-1', target: 'operator-3' },
       { id: 'e7', source: 'operator-3', target: 'result-1' }
     ],
-    tags: ['complex', 'four-operand', 'precedence', 'chain', 'mixed-operations'],
-    examples: ['10 + 5 - 8 / 2', '15 + 20 - 12 / 3', 'x + y - z / u'],
+    tags: ['complex', 'four-operand', 'precedence', 'exact', 'mixed-operations'],
+    examples: ['20 + 15 - 24 / 4', '20+15-24÷4'],
+    exactValues: [20, 15, 24, 4],
+    exactExpression: '20+15-24/4',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   },
   {
-    id: 'percentage-calculation',
-    name: 'Percentage Calculation',
-    description: 'Calculate percentage of a number',
-    pattern: 'x * y / 100',
+    id: 'exact-25-percent-of-200',
+    name: 'Percentage: 25% of 200',
+    description: 'Calculate 25% of 200 = 50',
+    pattern: '200 * 25 / 100',
     complexity: 'intermediate',
     operations: ['multiplication', 'division'],
     operandCount: 2,
@@ -762,13 +774,13 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 100, y: 100 },
-        data: { value: 0, label: 'Number' }
+        data: { value: 200, label: '200' }
       },
       {
         id: 'operand-2',
         type: 'operand',
         position: { x: 100, y: 200 },
-        data: { value: 0, label: 'Percentage' }
+        data: { value: 25, label: '25' }
       },
       {
         id: 'operand-3',
@@ -792,7 +804,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'result-1',
         type: 'result',
         position: { x: 700, y: 225 },
-        data: { label: 'Result' }
+        data: { label: 'Result (50)' }
       }
     ],
     edges: [
@@ -802,16 +814,18 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e4', source: 'operand-3', target: 'operator-2' },
       { id: 'e5', source: 'operator-2', target: 'result-1' }
     ],
-    tags: ['percentage', 'multiplication', 'division', 'business', 'finance'],
-    examples: ['20% of 150', '15% of 200', '25% of x'],
+    tags: ['percentage', 'exact', 'twenty-five', 'two-hundred', 'fifty'],
+    examples: ['25% of 200', '200 * 25 / 100'],
+    exactValues: [200, 25, 100],
+    exactExpression: '200*25/100',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   },
   {
-    id: 'compound-interest',
-    name: 'Simple Interest Calculator',
-    description: 'Calculate simple interest: Principal * Rate * Time / 100',
-    pattern: 'p * r * t / 100',
+    id: 'exact-interest-5000-8-3',
+    name: 'Simple Interest: ₹5000 at 8% for 3 years',
+    description: 'Calculate interest: 5000 × 8 × 3 ÷ 100 = 1200',
+    pattern: '5000 * 8 * 3 / 100',
     complexity: 'advanced',
     operations: ['multiplication', 'multiplication', 'division'],
     operandCount: 3,
@@ -820,19 +834,19 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 50, y: 100 },
-        data: { value: 0, label: 'Principal' }
+        data: { value: 5000, label: '5000' }
       },
       {
         id: 'operand-2',
         type: 'operand',
         position: { x: 50, y: 200 },
-        data: { value: 0, label: 'Rate' }
+        data: { value: 8, label: '8' }
       },
       {
         id: 'operand-3',
         type: 'operand',
         position: { x: 50, y: 300 },
-        data: { value: 0, label: 'Time' }
+        data: { value: 3, label: '3' }
       },
       {
         id: 'operand-4',
@@ -862,7 +876,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'result-1',
         type: 'result',
         position: { x: 850, y: 337 },
-        data: { label: 'Interest' }
+        data: { label: 'Interest (1200)' }
       }
     ],
     edges: [
@@ -874,16 +888,18 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e6', source: 'operand-4', target: 'operator-3' },
       { id: 'e7', source: 'operator-3', target: 'result-1' }
     ],
-    tags: ['finance', 'interest', 'business', 'multiplication', 'division'],
-    examples: ['1000 * 5 * 2 / 100', '5000 * 3.5 * 3 / 100'],
+    tags: ['finance', 'interest', 'exact', 'five-thousand', 'eight-percent'],
+    examples: ['5000 * 8 * 3 / 100', '5000×8×3÷100'],
+    exactValues: [5000, 8, 3, 100],
+    exactExpression: '5000*8*3/100',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   },
   {
-    id: 'average-calculation',
-    name: 'Average of Three Numbers',
-    description: 'Calculate average of three numbers',
-    pattern: '(x + y + z) / 3',
+    id: 'exact-average-85-92-78',
+    name: 'Average: (85 + 92 + 78) ÷ 3',
+    description: 'Calculate average of 85, 92, 78 = 85',
+    pattern: '(85 + 92 + 78) / 3',
     complexity: 'intermediate',
     operations: ['addition', 'addition', 'division'],
     operandCount: 3,
@@ -892,19 +908,19 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'operand-1',
         type: 'operand',
         position: { x: 100, y: 100 },
-        data: { value: 0, label: 'First Number' }
+        data: { value: 85, label: '85' }
       },
       {
         id: 'operand-2',
         type: 'operand',
         position: { x: 100, y: 200 },
-        data: { value: 0, label: 'Second Number' }
+        data: { value: 92, label: '92' }
       },
       {
         id: 'operand-3',
         type: 'operand',
         position: { x: 100, y: 300 },
-        data: { value: 0, label: 'Third Number' }
+        data: { value: 78, label: '78' }
       },
       {
         id: 'operand-4',
@@ -934,7 +950,7 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
         id: 'result-1',
         type: 'result',
         position: { x: 900, y: 337 },
-        data: { label: 'Average' }
+        data: { label: 'Average (85)' }
       }
     ],
     edges: [
@@ -946,8 +962,10 @@ export const defaultWorkflowTemplates: WorkflowTemplate[] = [
       { id: 'e6', source: 'operand-4', target: 'operator-3' },
       { id: 'e7', source: 'operator-3', target: 'result-1' }
     ],
-    tags: ['average', 'mean', 'statistics', 'addition', 'division'],
-    examples: ['(10 + 20 + 30) / 3', '(5 + 15 + 25) / 3'],
+    tags: ['average', 'exact', 'statistics', 'eighty-five', 'ninety-two'],
+    examples: ['(85 + 92 + 78) / 3', '(85+92+78)÷3'],
+    exactValues: [85, 92, 78, 3],
+    exactExpression: '(85+92+78)/3',
     createdAt: new Date('2024-01-01'),
     usageCount: 0
   }
