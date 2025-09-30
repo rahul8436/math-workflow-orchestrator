@@ -1,0 +1,13 @@
+# Ignore build artifacts
+.next/
+node_modules/
+dist/
+build/
+coverage/
+
+# Ignore generated files
+*.js.map
+*.d.ts
+
+# Ignore test artifacts
+__snapshots__/

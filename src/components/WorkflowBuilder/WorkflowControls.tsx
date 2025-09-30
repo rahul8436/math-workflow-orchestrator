@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Play, Square, RotateCcw, Save, Download, Upload, ChevronDown, ChevronUp, Bug } from 'lucide-react';
 import { useWorkflowStore } from '@/stores/workflow-store';
 import { workflowExecutor } from '@/lib/workflow-executor';
@@ -17,6 +17,40 @@ export function WorkflowControls() {
   const [inputs, setInputs] = useState<Record<string, number>>({});
   const [isExecuting, setIsExecuting] = useState(false);
   const [isDebugExpanded, setIsDebugExpanded] = useState(false); // Debug panel state
+  const [autoExecuteEnabled, setAutoExecuteEnabled] = useState(true); // Auto-execution toggle
+  const [forceUpdate, setForceUpdate] = useState(0); // Force update counter
+  const lastWorkflowId = useRef<string | null>(null);
+  const lastNodesHash = useRef<string>('');
+  const lastInputsHash = useRef<string>('');
+
+  // Force component update when nodes change externally
+  useEffect(() => {
+    setForceUpdate(prev => prev + 1);
+  }, [nodes]);
+
+  // Additional effect to specifically track operand value changes
+  useEffect(() => {
+    if (!autoExecuteEnabled) return;
+    
+    const operandValues = nodes
+      .filter(n => n.type === 'operand')
+      .map(n => ({ id: n.id, value: n.data.value }));
+    
+    const operandHash = JSON.stringify(operandValues);
+    
+    if (operandHash !== lastNodesHash.current && lastNodesHash.current !== '') {
+      console.log('🎯 Operand values changed, forcing re-execution...', operandValues);
+      
+      // Small delay to ensure all updates are processed
+      setTimeout(() => {
+        if (activeWorkflow && nodes.length > 0) {
+          executeWorkflow(true);
+        }
+      }, 50);
+    }
+    
+    lastNodesHash.current = operandHash;
+  }, [nodes.map(n => n.data.value).join(','), autoExecuteEnabled]); // Track value changes
   // Get variable nodes that need input values
   const getVariableNodes = () => {
     return nodes.filter(node =>
@@ -24,22 +58,148 @@ export function WorkflowControls() {
       node.type === 'variable'
     );
   };
-  const executeWorkflow = async () => {
+
+  // Auto-execution effect - triggers when workflow, nodes, or inputs change
+  useEffect(() => {
+    if (!autoExecuteEnabled || !activeWorkflow || nodes.length === 0 || isExecuting) {
+      return;
+    }
+
+    // Create more detailed hashes to detect meaningful changes
+    const currentWorkflowId = activeWorkflow?.id || '';
+    
+    // Include more detailed node information for better change detection
+    const currentNodesHash = JSON.stringify(nodes.map(n => ({ 
+      id: n.id, 
+      type: n.type, 
+      value: n.data.value,
+      operation: n.data.operation,
+      label: n.data.label,
+      isVariable: n.data.isVariable,
+      variableName: n.data.variableName,
+      // Include position to detect if nodes were moved/updated
+      position: n.position
+    })).sort((a, b) => a.id.localeCompare(b.id))); // Sort for consistent hashing
+    
+    const currentInputsHash = JSON.stringify(inputs);
+
+    // Check if this is a meaningful change that should trigger execution
+    const workflowChanged = currentWorkflowId !== lastWorkflowId.current;
+    const nodesChanged = currentNodesHash !== lastNodesHash.current;
+    const inputsChanged = currentInputsHash !== lastInputsHash.current;
+
+    // Log changes for debugging
+    if (workflowChanged) console.log('🔄 Workflow changed:', currentWorkflowId);
+    if (nodesChanged) console.log('🔄 Nodes changed - triggering re-execution');
+    if (inputsChanged) console.log('🔄 Inputs changed:', inputs);
+
+    if (workflowChanged || nodesChanged || inputsChanged) {
+      // For variable workflows, check if all required inputs are provided
+      const variableNodes = getVariableNodes();
+      const hasAllRequiredInputs = variableNodes.length === 0 || 
+        variableNodes.every(node => {
+          const varName = node.data.variableName || node.data.label || node.id;
+          return inputs[varName] !== undefined && inputs[varName] !== null;
+        });
+
+      if (hasAllRequiredInputs) {
+        console.log('🔄 Auto-executing workflow due to changes...');
+        
+        // Use a slightly longer delay to ensure all node updates are complete
+        // and prevent too frequent executions during rapid changes
+        const timeoutId = setTimeout(() => {
+          console.log('🎯 Executing with current node values:', nodes.map(n => ({ 
+            id: n.id, 
+            type: n.type, 
+            value: n.data.value 
+          })));
+          executeWorkflow(true);
+        }, 150); // Increased from 100ms to 150ms
+
+        // Update the refs to track current state
+        lastWorkflowId.current = currentWorkflowId;
+        lastNodesHash.current = currentNodesHash;
+        lastInputsHash.current = currentInputsHash;
+
+        return () => clearTimeout(timeoutId);
+      } else {
+        console.log('⏳ Waiting for all required inputs before auto-execution...');
+        // Update refs even when not executing to prevent infinite loops
+        lastWorkflowId.current = currentWorkflowId;
+        lastNodesHash.current = currentNodesHash;
+        lastInputsHash.current = currentInputsHash;
+      }
+    }
+  }, [activeWorkflow, nodes, inputs, autoExecuteEnabled, isExecuting, forceUpdate]);
+
+  // Initialize inputs for new workflows with default values
+  useEffect(() => {
+    if (activeWorkflow && activeWorkflow.id !== lastWorkflowId.current) {
+      const variableNodes = getVariableNodes();
+      if (variableNodes.length > 0) {
+        const defaultInputs: Record<string, number> = {};
+        variableNodes.forEach(node => {
+          const varName = node.data.variableName || node.data.label || node.id;
+          // Set default value to 0 if not already set
+          if (inputs[varName] === undefined) {
+            defaultInputs[varName] = 0;
+          }
+        });
+        
+        if (Object.keys(defaultInputs).length > 0) {
+          setInputs(prev => ({ ...prev, ...defaultInputs }));
+        }
+      }
+      lastWorkflowId.current = activeWorkflow.id;
+    }
+  }, [activeWorkflow]);
+  const executeWorkflow = async (isAutoTriggered = false) => {
     if (!activeWorkflow || nodes.length === 0) return;
     setIsExecuting(true);
     try {
-      // Get all operand values from nodes in order
-      const operandNodes = nodes.filter(node => node.type === 'operand');
-      const operandValues = operandNodes.map(node => Number(node.data.value ?? 0));
-      console.log('All operand nodes:', operandNodes);
-      console.log('All operand values:', operandValues);
-      console.log('Active workflow operations:', activeWorkflow.operations);
-      // Handle different workflow types and complex operations
+      if (isAutoTriggered) {
+        console.log('🔄 Auto-executing workflow...');
+      } else {
+        console.log('▶️ Manually executing workflow...');
+      }
+      
+      // Get the most current nodes from the store to ensure we have latest values
+      const { nodes: freshNodes } = useWorkflowStore.getState();
+      const currentNodes = freshNodes.length > 0 ? freshNodes : nodes;
+      
+      console.log('📊 Current node values being used:', currentNodes.map(n => ({ 
+        id: n.id, 
+        type: n.type, 
+        value: n.data.value,
+        operation: n.data.operation 
+      })));
+      
       let result = 0;
-      if (activeWorkflow.operations.length === 1) {
-        // Single operation workflows
-        const operation = activeWorkflow.operations[0];
-        if (operandValues.length >= 2) {
+      
+      // First, try to use the proper workflow executor if we have a complete workflow structure
+      if (activeWorkflow && edges.length > 0) {
+        console.log('Using proper workflow execution with nodes and edges');
+        // Create a workflow template with current nodes for execution
+        const workflowWithCurrentNodes = {
+          ...activeWorkflow,
+          nodes: currentNodes
+        };
+        const execution = workflowExecutor.execute(workflowWithCurrentNodes, inputs);
+        result = execution.result;
+      } else {
+        // Fallback: try to construct expression and use executeExpression
+        const operandNodes = currentNodes.filter(node => node.type === 'operand');
+        console.log('Operand nodes:', operandNodes);
+        
+        if (activeWorkflow.exactExpression) {
+          // If we have the exact expression, use it
+          console.log('Using exact expression:', activeWorkflow.exactExpression);
+          result = workflowExecutor.executeExpression(activeWorkflow.exactExpression, inputs);
+        } else if (operandNodes.length >= 2 && activeWorkflow.operations.length === 1) {
+          // Handle simple single-operation cases
+          const operandValues = operandNodes.map(node => Number(node.data.value ?? 0));
+          const operation = activeWorkflow.operations[0];
+          
           switch (operation) {
             case 'addition':
               result = operandValues.reduce((sum, val) => sum + val, 0);
@@ -55,13 +215,42 @@ export function WorkflowControls() {
                 index === 0 ? val : (val !== 0 ? quotient / val : quotient)
               );
               break;
+            default:
+              throw new Error(`Unsupported operation: ${operation}`);
+          }
+        } else {
+          // For complex expressions, construct the expression string and evaluate it properly
+          console.warn('Complex expression detected, but no proper workflow structure available');
+          console.warn('This may lead to incorrect results due to operator precedence issues');
+          
+          // Try to reconstruct the expression from the pattern and operand values
+          if (activeWorkflow.pattern && operandNodes.length > 0) {
+            let expression = activeWorkflow.pattern;
+            const operandValues = operandNodes.map(node => Number(node.data.value ?? 0));
+            console.log('📝 Reconstructing expression with values:', operandValues);
+            
+            // Replace pattern variables with actual values
+            // This is a simplified approach - in practice, you'd want more robust pattern matching
+            const variables = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+            for (let i = 0; i < Math.min(variables.length, operandValues.length); i++) {
+              expression = expression.replace(new RegExp(variables[i], 'g'), operandValues[i].toString());
+            }
+            
+            console.log('Reconstructed expression:', expression);
+            result = workflowExecutor.executeExpression(expression, inputs);
+          } else {
+            throw new Error('Cannot execute complex workflow without proper structure or expression');
           }
         }
-      } else {
-        // Complex operations - handle multiple operations in sequence
-        result = calculateComplexExpression(operandValues, activeWorkflow.operations);
       }
+      
       console.log('Final calculated result:', result);
+      
+      // Get operand values for the execution record
+      const operandNodes = currentNodes.filter(node => node.type === 'operand');
+      const operandValues = operandNodes.map(node => Number(node.data.value ?? 0));
+      console.log('💾 Final operand values for execution record:', operandValues);
+      
       // Create execution object
       const execution = {
         id: `exec-${Date.now()}`,
@@ -91,39 +280,55 @@ export function WorkflowControls() {
       setIsExecuting(false);
     }
   };
-  // Calculate complex expressions with multiple operations
-  const calculateComplexExpression = (values: number[], operations: string[]): number => {
-    if (values.length < 2 || operations.length === 0) return 0;
-    let result = values[0];
-    // Apply operations in sequence
-    for (let i = 0; i < operations.length && i + 1 < values.length; i++) {
-      const operation = operations[i];
-      const nextValue = values[i + 1];
-      switch (operation) {
-        case 'addition':
-          result += nextValue;
-          break;
-        case 'subtraction':
-          result -= nextValue;
-          break;
-        case 'multiplication':
-          result *= nextValue;
-          break;
-        case 'division':
-          result = nextValue !== 0 ? result / nextValue : result;
-          break;
-      }
+  // REMOVED: calculateComplexExpression function was causing incorrect results
+  // for complex expressions like (3+5) - 4*(6+9) because it ignored operator
+  // precedence and parentheses, calculating left-to-right instead.
+  // Now using proper workflow executor or expression parser instead.
+  
+  // Manual trigger for node value updates (can be called from workflow builder)
+  const triggerAutoExecution = () => {
+    if (autoExecuteEnabled && activeWorkflow && nodes.length > 0) {
+      console.log('🔄 Manual trigger for auto-execution due to node updates...');
+      setTimeout(() => {
+        executeWorkflow(true);
+      }, 50);
     }
-    return result;
   };
+
+  // Expose the trigger function to global scope for workflow builder components
+  useEffect(() => {
+    (window as any).triggerWorkflowAutoExecution = triggerAutoExecution;
+    return () => {
+      delete (window as any).triggerWorkflowAutoExecution;
+    };
+  }, [autoExecuteEnabled, activeWorkflow, nodes.length]);
+  
   const updateResultNodesDirectly = async (result: number) => {
     console.log('🎯 Updating result nodes with value:', result);
-    // Force update both store and local state
+    
+    // Update result nodes in the current local state immediately
+    const updatedLocalNodes = nodes.map(node => {
+      if (node.type === 'result') {
+        console.log('� Found result node locally, updating:', node.id);
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            value: result
+          }
+        };
+      }
+      return node;
+    });
+    
+    // Update local state first for immediate UI response
+    setNodes(updatedLocalNodes);
+    
+    // Then update the store state
     const { nodes: storeNodes, setNodes: setStoreNodes } = useWorkflowStore.getState();
-    // Update workflow store first
     const updatedStoreNodes = storeNodes.map(node => {
       if (node.type === 'result') {
-        console.log('📊 Found result node in store, updating:', node.id);
+        console.log('� Found result node in store, updating:', node.id);
         return {
           ...node,
           data: {
@@ -135,25 +340,11 @@ export function WorkflowControls() {
       return node;
     });
     setStoreNodes(updatedStoreNodes);
-    // Update local nodes state
-    const updatedLocalNodes = nodes.map(node => {
-      if (node.type === 'result') {
-        console.log('🔄 Found result node locally, updating:', node.id);
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            value: result
-          }
-        };
-      }
-      return node;
-    });
-    setNodes(updatedLocalNodes);
-    // Force a re-render
+    
+    // Force a final re-render to ensure consistency
     setTimeout(() => {
       setNodes([...updatedLocalNodes]);
-    }, 50);
+    }, 10);
   };
   const updateResultNodes = updateResultNodesDirectly;
   const resetWorkflow = () => {
@@ -211,9 +402,16 @@ export function WorkflowControls() {
       {/* Variable Inputs - Compact */}
       {variableNodes.length > 0 && (
         <div className="space-y-2">
-          <h5 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-            Inputs
-          </h5>
+          <div className="flex items-center justify-between">
+            <h5 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+              Inputs
+            </h5>
+            {autoExecuteEnabled && (
+              <span className="text-xs text-blue-600 font-medium">
+                Auto-updating
+              </span>
+            )}
+          </div>
           {variableNodes.map((node) => {
             const varName = node.data.variableName || node.data.label || node.id;
             return (
@@ -243,29 +441,54 @@ export function WorkflowControls() {
             <div className="text-sm font-bold text-green-800">
               Result: {currentExecution.result}
             </div>
-            <div className="text-xs text-green-600">
-              Executed in {currentExecution.duration}ms
+            <div className="text-xs text-green-600 flex items-center justify-center gap-1">
+              <span>Executed in {currentExecution.duration}ms</span>
+              {autoExecuteEnabled && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                  Auto
+                </span>
+              )}
             </div>
           </div>
         </div>
       )}
+      
+      {/* Auto-Execute Toggle */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-600 font-medium">Auto Execute</span>
+        <button
+          onClick={() => setAutoExecuteEnabled(!autoExecuteEnabled)}
+          className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            autoExecuteEnabled ? 'bg-blue-600' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+              autoExecuteEnabled ? 'translate-x-3.5' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </div>
+      
       {/* Control Buttons - More compact */}
       <div className="grid grid-cols-2 gap-1">
         <button
-          onClick={executeWorkflow}
+          onClick={() => executeWorkflow(false)}
           disabled={!canExecute}
           className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
             canExecute
               ? 'bg-blue-600 text-white hover:bg-blue-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
+          title={autoExecuteEnabled ? 'Manual execution (auto-execute is enabled)' : 'Execute workflow'}
         >
           {isExecuting ? (
             <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <Play className="w-3 h-3" />
           )}
-          Execute
+          {autoExecuteEnabled ? 'Manual' : 'Execute'}
         </button>
         <button
           onClick={resetWorkflow}
@@ -379,6 +602,14 @@ export function WorkflowControls() {
                     <span>Timestamp:</span>
                     <span className="font-mono">
                       {new Date(currentExecution.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Auto-Execute:</span>
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                      autoExecuteEnabled ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {autoExecuteEnabled ? 'Enabled' : 'Disabled'}
                     </span>
                   </div>
                 </div>

@@ -26,7 +26,7 @@ function makeRequest(message, templates = []) {
     
     const options = {
       hostname: 'localhost',
-      port: 3001,
+      port: 3000,
       path: '/api/chat',
       method: 'POST',
       headers: {
@@ -290,7 +290,7 @@ async function runAllTests() {
     }
     colorLog('green', '✅ Server is running and responsive');
   } catch (error) {
-    colorLog('red', '❌ Server is not running on localhost:3001');
+    colorLog('red', '❌ Server is not running on localhost:3000');
     colorLog('yellow', '💡 Please start with: npm run dev');
     process.exit(1);
   }

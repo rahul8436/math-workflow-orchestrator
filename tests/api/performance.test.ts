@@ -1,6 +1,9 @@
-import { APITestClient, TestDataGenerator } from '../utils/test-helpers';
+import { APITestClient, TestDataGenerator } from '../utils/test-helpers-old';
 
-describe('Performance and Load Testing', () => {
+const describeIf = (condition: boolean) => condition ? describe : describe.skip;
+
+// Run these tests only if GROQ_API_KEY is set
+describeIf(!!process.env.GROQ_API_KEY)('Performance and Load Testing', () => {
   let client: APITestClient;
 
   beforeAll(() => {
@@ -78,7 +81,7 @@ describe('Performance and Load Testing', () => {
 
     test('should handle mixed create/find concurrent requests', async () => {
       // Create some base workflows
-      const baseWorkflows = [];
+      const baseWorkflows: any[] = [];
       for (let i = 10; i <= 12; i++) {
         const workflow = await client.testWorkflowCreation(`create ${i} * 2`);
         if (workflow.workflow) {

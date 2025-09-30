@@ -176,15 +176,28 @@ export class WorkflowMatcher {
       if (template.exactExpression) {
         const normalizedExactExpr = template.exactExpression.toLowerCase().replace(/\s+/g, '');
         
-        // Direct expression match
-        if (normalizedInput === normalizedExactExpr ||
-            normalizedInput.includes(normalizedExactExpr)) {
+        // Exact full match gets highest priority
+        if (normalizedInput === normalizedExactExpr) {
           matches.push({
             workflowId: template.id,
             name: template.name,
-            confidence: 0.99, // Highest confidence for exact expression match
+            confidence: 0.99, // Highest confidence for exact full match
             reason: `Perfect match: "${template.exactExpression}"`,
             matchType: 'exact'
+          });
+        }
+        // Partial match (user input contains this expression) gets lower priority
+        else if (normalizedInput.includes(normalizedExactExpr)) {
+          // Calculate confidence based on how much of the input this expression covers
+          const coverageRatio = normalizedExactExpr.length / normalizedInput.length;
+          const confidence = Math.max(0.6, 0.85 * coverageRatio); // Scale down based on coverage
+          
+          matches.push({
+            workflowId: template.id,
+            name: template.name,
+            confidence: confidence,
+            reason: `Partial match: "${template.exactExpression}" (${Math.round(coverageRatio * 100)}% coverage)`,
+            matchType: 'partial'
           });
         }
         
@@ -437,7 +450,26 @@ export class WorkflowMatcher {
   }
 
   private sortByConfidence(suggestions: WorkflowSuggestion[]): WorkflowSuggestion[] {
-    return suggestions.sort((a, b) => b.confidence - a.confidence);
+    return suggestions.sort((a, b) => {
+      // First sort by confidence (higher is better)
+      if (b.confidence !== a.confidence) {
+        return b.confidence - a.confidence;
+      }
+      
+      // If confidence is equal, prefer exact matches over partial matches
+      if (a.matchType === 'exact' && b.matchType === 'partial') return -1;
+      if (a.matchType === 'partial' && b.matchType === 'exact') return 1;
+      
+      // If both are partial matches, prefer the one with longer expression (more complete)
+      if (a.matchType === 'partial' && b.matchType === 'partial') {
+        const aLength = a.reason.match(/\"([^\"]+)\"/)?.[1]?.length || 0;
+        const bLength = b.reason.match(/\"([^\"]+)\"/)?.[1]?.length || 0;
+        return bLength - aLength; // Longer expression first
+      }
+      
+      // Default: keep original order
+      return 0;
+    });
   }
 
   // Analyze if we should create a new workflow

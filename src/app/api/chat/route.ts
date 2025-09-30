@@ -4,6 +4,7 @@ import { createGroq } from '@ai-sdk/groq';
 import { WorkflowTemplate, AIAnalysis } from '@/types/workflow';
 import { workflowMatcher } from '@/lib/workflow-matcher';
 import { expressionParser } from '@/lib/expression-parser';
+import { retryWithFallback, getModelFallbackChain } from '@/lib/ai-models';
 
 // Initialize Groq provider
 const groq = createGroq({
@@ -112,15 +113,24 @@ Current templates available: ${templates.length} workflows
 
 Respond with your analysis and the appropriate action to take.`;
 
-    // Generate response using Vercel AI SDK
-    const { text } = await generateText({
-      model: groq('llama-3.3-70b-versatile'),
-      system: systemPrompt,
-      prompt: message,
-      temperature: 0.3,
-    });
-
-    console.log('🎯 AI Response:', text);
+    // Generate response using Vercel AI SDK with automatic fallback
+    console.log('🤖 Calling AI with automatic model fallback...');
+    const { result: textResult, modelUsed, attempts } = await retryWithFallback(
+      async (modelId) => {
+        console.log(`  📡 Trying model: ${modelId}`);
+        const { text } = await generateText({
+          model: groq(modelId),
+          system: systemPrompt,
+          prompt: message,
+          temperature: 0.3,
+        });
+        return text;
+      },
+      'orchestration'
+    );
+    const text = textResult;
+    
+    console.log(`🎯 AI Response (from ${modelUsed} after ${attempts} attempt(s)):`, text.substring(0, 200) + '...');
 
     // Parse the AI response to determine intent and extract expressions
     let intent = 'general';
@@ -151,9 +161,12 @@ Respond with your analysis and the appropriate action to take.`;
       console.log('🧠 Using AI to extract mathematical expression...');
       
       try {
-        const { text: extractionResponse } = await generateText({
-          model: groq('llama-3.3-70b-versatile'),
-          prompt: `Extract ONLY the mathematical expression from: "${message}"
+        const { result: extractionResponse, modelUsed } = await retryWithFallback(
+          async (modelId) => {
+            console.log(`  📡 Extraction attempt with: ${modelId}`);
+            const { text: extractionResponse } = await generateText({
+              model: groq(modelId),
+              prompt: `Extract ONLY the mathematical expression from: "${message}"
 
 RULES:
 - Return ONLY the math expression, nothing else
@@ -169,11 +182,15 @@ EXAMPLES:
 "hello" → NONE
 
 EXPRESSION:`,
-          temperature: 0.1,
-        });
+              temperature: 0.1,
+            });
+            return extractionResponse;
+          },
+          'simple' // Use simple task for extraction (faster models)
+        );
 
         const extracted = extractionResponse.trim();
-        console.log('🧠 AI extracted:', extracted);
+        console.log(`🧠 AI extracted (using ${modelUsed}):`, extracted);
         
         // Validate that it's a clean mathematical expression (no explanations)
         const isCleanExpression = extracted && 
@@ -259,9 +276,12 @@ EXPRESSION:`,
       console.log('🧠 Using AI to extract mathematical expression for FIND...');
       
       try {
-        const { text: extractionResponse } = await generateText({
-          model: groq('llama-3.3-70b-versatile'),
-          prompt: `Extract ONLY the mathematical expression from: "${message}"
+        const { result: extractionResponse, modelUsed } = await retryWithFallback(
+          async (modelId) => {
+            console.log(`  📡 FIND extraction attempt with: ${modelId}`);
+            const { text: extractionResponse } = await generateText({
+              model: groq(modelId),
+              prompt: `Extract ONLY the mathematical expression from: "${message}"
 
 RULES:
 - Return ONLY the math expression, nothing else
@@ -278,11 +298,15 @@ EXAMPLES:
 "get workflow" → NONE
 
 EXPRESSION:`,
-          temperature: 0.1,
-        });
+              temperature: 0.1,
+            });
+            return extractionResponse;
+          },
+          'simple' // Use simple task for extraction
+        );
 
         const extracted = extractionResponse.trim();
-        console.log('🧠 AI extracted for FIND:', extracted);
+        console.log(`🧠 AI extracted for FIND (using ${modelUsed}):`, extracted);
         
         // Validate that it's a clean mathematical expression (no explanations)
         const isCleanExpression = extracted && 
@@ -325,6 +349,12 @@ EXPRESSION:`,
         
         const results = findMatchingWorkflows(expression, templates);
         console.log('🔍 Found results:', results.length);
+        console.log('🔍 Detailed results:', results.map(r => ({ 
+          name: r.name, 
+          confidence: r.confidence, 
+          reason: r.reason,
+          matchType: r.matchType 
+        })));
         
         suggestions = results.map(suggestion => ({
           workflowId: suggestion.workflowId,
@@ -334,11 +364,23 @@ EXPRESSION:`,
         }));
 
         // If we found a high-confidence match, set it as found for auto-loading
-        if (results.length > 0 && results[0].confidence > 0.7) {
-          const bestMatch = templates.find(t => t.id === results[0].workflowId);
-          if (bestMatch) {
-            foundWorkflow = bestMatch;
-            console.log('✅ Auto-loading best match:', bestMatch.name);
+        // Prefer exact matches over partial matches even if confidence is similar
+        if (results.length > 0) {
+          let bestMatch = results[0]; // Already sorted by our improved logic
+          
+          console.log('🎯 Best match selected:', {
+            name: bestMatch.name,
+            confidence: bestMatch.confidence,
+            matchType: bestMatch.matchType,
+            reason: bestMatch.reason
+          });
+          
+          if (bestMatch.confidence > 0.7) {
+            const matchedTemplate = templates.find(t => t.id === bestMatch.workflowId);
+            if (matchedTemplate) {
+              foundWorkflow = matchedTemplate;
+              console.log('✅ Auto-loading best match:', matchedTemplate.name);
+            }
           }
         }
       }

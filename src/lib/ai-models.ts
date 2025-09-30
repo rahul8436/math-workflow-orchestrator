@@ -102,34 +102,106 @@ export function getModelForTask(task: 'analysis' | 'orchestration' | 'simple' | 
       return GROQ_MODELS.PRIMARY.id;
   }
 }
-// Get multiple fallback models in priority order - Production models only
+// Get multiple fallback models in priority order - ALL production models for maximum availability
 export function getModelFallbackChain(task: 'analysis' | 'orchestration' | 'simple'): string[] {
   switch (task) {
     case 'analysis':
     case 'orchestration':
       return [
-        GROQ_MODELS.PRIMARY.id,         // Primary: llama-3.3-70b-versatile
-        GROQ_MODELS.FAST.id,            // Fast: llama-3.1-8b-instant  
-        GROQ_MODELS.OPENAI_20B.id,      // OpenAI small: openai/gpt-oss-20b
-        GROQ_MODELS.OPENAI_120B.id,     // OpenAI large: openai/gpt-oss-120b
-        GROQ_MODELS.QWEN.id,            // Qwen: qwen/qwen3-32b
-        GROQ_MODELS.KIMI.id             // Kimi: moonshotai/kimi-k2-instruct-0905
+        GROQ_MODELS.PRIMARY.id,              // 1. llama-3.3-70b-versatile (best quality)
+        GROQ_MODELS.OPENAI_120B.id,          // 2. openai/gpt-oss-120b (large, high quality)
+        GROQ_MODELS.QWEN.id,                 // 3. qwen/qwen3-32b (good alternative)
+        GROQ_MODELS.KIMI.id,                 // 4. moonshotai/kimi-k2-instruct-0905 (large context)
+        GROQ_MODELS.OPENAI_20B.id,           // 5. openai/gpt-oss-20b (reliable)
+        GROQ_MODELS.FAST.id,                 // 6. llama-3.1-8b-instant (fast, always available)
+        GROQ_MODELS.PREVIEW_LLAMA4_MAVERICK.id, // 7. llama-4-maverick (preview)
+        GROQ_MODELS.PREVIEW_LLAMA4_SCOUT.id     // 8. llama-4-scout (preview)
       ];
     case 'simple':
       return [
-        GROQ_MODELS.FAST.id,            // Fast: llama-3.1-8b-instant
-        GROQ_MODELS.OPENAI_20B.id,      // OpenAI backup: openai/gpt-oss-20b
-        GROQ_MODELS.PRIMARY.id,         // Primary fallback: llama-3.3-70b-versatile
-        GROQ_MODELS.QWEN.id             // Final fallback: qwen/qwen3-32b
+        GROQ_MODELS.FAST.id,                 // 1. llama-3.1-8b-instant (fastest)
+        GROQ_MODELS.OPENAI_20B.id,           // 2. openai/gpt-oss-20b (reliable)
+        GROQ_MODELS.PRIMARY.id,              // 3. llama-3.3-70b-versatile (quality)
+        GROQ_MODELS.QWEN.id,                 // 4. qwen/qwen3-32b (alternative)
+        GROQ_MODELS.OPENAI_120B.id,          // 5. openai/gpt-oss-120b (powerful)
+        GROQ_MODELS.KIMI.id,                 // 6. moonshotai/kimi-k2-instruct-0905
+        GROQ_MODELS.PREVIEW_LLAMA4_SCOUT.id  // 7. llama-4-scout (preview)
       ];
     default:
-      return [GROQ_MODELS.FAST.id, GROQ_MODELS.OPENAI_20B.id];
+      return [
+        GROQ_MODELS.FAST.id, 
+        GROQ_MODELS.OPENAI_20B.id,
+        GROQ_MODELS.PRIMARY.id,
+        GROQ_MODELS.QWEN.id,
+        GROQ_MODELS.OPENAI_120B.id,
+        GROQ_MODELS.KIMI.id
+      ];
   }
 }
 // Get appropriate max_tokens for a model - Updated for current models
 export function getMaxTokensForModel(modelId: string): number {
   const model = Object.values(GROQ_MODELS).find(m => m.id === modelId);
   return model?.maxCompletionTokens || 32768; // Default to reasonable limit
+}
+
+// Retry configuration for rate limit handling
+export interface RetryConfig {
+  maxRetries: number;
+  initialDelayMs: number;
+  maxDelayMs: number;
+  backoffMultiplier: number;
+}
+
+export const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 8, // Try up to 8 models in the fallback chain
+  initialDelayMs: 1000,
+  maxDelayMs: 10000,
+  backoffMultiplier: 2
+};
+
+// Track model availability (simple in-memory cache)
+const modelAvailability = new Map<string, { lastFailed: number; failCount: number }>();
+
+export function markModelUnavailable(modelId: string): void {
+  const current = modelAvailability.get(modelId) || { lastFailed: 0, failCount: 0 };
+  modelAvailability.set(modelId, {
+    lastFailed: Date.now(),
+    failCount: current.failCount + 1
+  });
+}
+
+export function isModelAvailable(modelId: string): boolean {
+  const info = modelAvailability.get(modelId);
+  if (!info) return true;
+  
+  // If model failed recently (within last 60 seconds) and has failed multiple times, consider it unavailable
+  const timeSinceFailure = Date.now() - info.lastFailed;
+  const cooldownPeriod = Math.min(60000, info.failCount * 10000); // Up to 60s cooldown
+  
+  return timeSinceFailure > cooldownPeriod;
+}
+
+export function resetModelAvailability(modelId: string): void {
+  modelAvailability.delete(modelId);
+}
+
+// Get next available model from fallback chain
+export function getNextAvailableModel(task: 'analysis' | 'orchestration' | 'simple', skipModels: string[] = []): string | null {
+  const chain = getModelFallbackChain(task);
+  
+  for (const modelId of chain) {
+    if (!skipModels.includes(modelId) && isModelAvailable(modelId)) {
+      return modelId;
+    }
+  }
+  
+  // If all models are marked unavailable, reset and try again (desperation mode)
+  if (chain.length > 0) {
+    chain.forEach(resetModelAvailability);
+    return chain[0];
+  }
+  
+  return null;
 }
 // All available models for reference - Updated with current Groq models
 export const ALL_GROQ_MODELS = {
@@ -297,3 +369,68 @@ export const ALL_GROQ_MODELS = {
     },
   ],
   } as const;
+
+// Retry utility for AI requests with automatic model fallback
+export async function retryWithFallback<T>(
+  operation: (modelId: string) => Promise<T>,
+  task: 'analysis' | 'orchestration' | 'simple' = 'orchestration',
+  config: RetryConfig = DEFAULT_RETRY_CONFIG
+): Promise<{ result: T; modelUsed: string; attempts: number }> {
+  const modelChain = getModelFallbackChain(task);
+  const errors: Array<{ model: string; error: any }> = [];
+  
+  for (let i = 0; i < Math.min(config.maxRetries, modelChain.length); i++) {
+    const modelId = modelChain[i];
+    
+    // Skip if model is temporarily unavailable
+    if (!isModelAvailable(modelId)) {
+      console.log(`⏭️  Skipping ${modelId} (temporarily unavailable)`);
+      continue;
+    }
+    
+    try {
+      console.log(`🔄 Attempt ${i + 1}/${modelChain.length}: Trying ${modelId}...`);
+      const result = await operation(modelId);
+      
+      // Success! Reset availability tracking for this model
+      resetModelAvailability(modelId);
+      
+      console.log(`✅ Success with ${modelId} on attempt ${i + 1}`);
+      return { result, modelUsed: modelId, attempts: i + 1 };
+      
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      errors.push({ model: modelId, error: errorMessage });
+      
+      // Check if it's a rate limit error
+      const isRateLimit = errorMessage.toLowerCase().includes('rate limit') ||
+                         errorMessage.toLowerCase().includes('too many requests') ||
+                         errorMessage.toLowerCase().includes('429');
+      
+      if (isRateLimit) {
+        console.log(`⚠️  Rate limit hit on ${modelId}, marking unavailable and trying next model...`);
+        markModelUnavailable(modelId);
+        
+        // Add exponential backoff delay before trying next model
+        const delay = Math.min(
+          config.initialDelayMs * Math.pow(config.backoffMultiplier, i),
+          config.maxDelayMs
+        );
+        
+        if (i < modelChain.length - 1) {
+          console.log(`⏳ Waiting ${delay}ms before next attempt...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } else {
+        // Non-rate-limit error, log and try next model immediately
+        console.error(`❌ Error with ${modelId}:`, errorMessage);
+      }
+    }
+  }
+  
+  // All models failed
+  console.error('❌ All models failed. Errors:', errors);
+  throw new Error(
+    `All ${errors.length} models failed. Last error: ${errors[errors.length - 1]?.error || 'Unknown'}`
+  );
+}

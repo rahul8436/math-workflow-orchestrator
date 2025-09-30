@@ -1,24 +1,30 @@
 {
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "roots": [
+    "<rootDir>/src",
+    "<rootDir>/tests"
+  ],
+  "testMatch": [
+    "**/__tests__/**/*.(ts|tsx|js)",
+    "**/*.(test|spec).(ts|tsx|js)"
+  ],
   "collectCoverageFrom": [
     "src/**/*.{ts,tsx}",
-    "!src/**/*.d.ts"
+    "!src/**/*.d.ts",
+    "!src/**/*.stories.*",
+    "!src/app/**/layout.tsx",
+    "!src/app/**/page.tsx"
   ],
   "coverageDirectory": "coverage",
   "coverageReporters": [
     "text",
     "lcov",
-    "html"
-  ],
-  "preset": "ts-jest",
-  "roots": [
-    "<rootDir>/tests"
+    "html",
+    "json"
   ],
   "setupFilesAfterEnv": [
     "<rootDir>/tests/setup.ts"
-  ],
-  "testEnvironment": "node",
-  "testMatch": [
-    "**/*.test.ts"
   ],
   "testTimeout": 30000,
   "transform": {
@@ -31,5 +37,15 @@
     "jsx",
     "json",
     "node"
+  ],
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/src/$1"
+  },
+  "testPathIgnorePatterns": [
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/"
+  ],
+  "transformIgnorePatterns": [
+    "node_modules/(?!(node-fetch)/)"
   ]
 }

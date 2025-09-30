@@ -249,18 +249,39 @@ export class WorkflowExecutor {
   // Quick execution for simple expressions
   executeExpression(expression: string, variables: Record<string, number> = {}): number {
     try {
-      // Simple evaluation for basic expressions
-      // This is a simplified version - the full implementation would use the expression parser
-      const sanitized = expression.replace(/[^0-9+\-*/().\s]/g, '');
-
-      // Replace variables
-      let processed = sanitized;
+      // Replace variables first, before sanitizing
+      let processed = expression;
       for (const [variable, value] of Object.entries(variables)) {
-        processed = processed.replace(new RegExp(variable, 'g'), value.toString());
+        const regex = new RegExp(`\\b${variable}\\b`, 'g');
+        processed = processed.replace(regex, value.toString());
       }
 
-      // Evaluate safely
-      return Function(`"use strict"; return (${processed})`)();
+      // Validate the expression contains only safe characters after variable replacement
+      if (!/^[0-9+\-*/().\s]+$/.test(processed)) {
+        throw new Error('Expression contains invalid characters after variable substitution');
+      }
+
+      // Validate the processed expression is not empty and has balanced parentheses
+      if (!processed.trim()) {
+        throw new Error('Empty expression after processing');
+      }
+
+      const openParens = (processed.match(/\(/g) || []).length;
+      const closeParens = (processed.match(/\)/g) || []).length;
+      if (openParens !== closeParens) {
+        throw new Error('Unbalanced parentheses in expression');
+      }
+
+      // Evaluate safely using Function constructor
+      // This respects operator precedence and parentheses correctly
+      const result = Function(`"use strict"; return (${processed})`)();
+
+      // Validate the result is a valid number
+      if (typeof result !== 'number' || !isFinite(result)) {
+        throw new Error('Expression did not evaluate to a valid number');
+      }
+
+      return result;
     } catch (error) {
       throw new Error(`Expression evaluation failed: ${error.message}`);
     }
